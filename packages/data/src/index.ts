@@ -1,6 +1,7 @@
 export * from '#env';
 export * from '#gbis';
 export * from '#holiday';
+export * from '#kakao-local';
 export * from '#kric';
 export * from '#normalize/gbis-segments';
 export * from '#normalize/headway';
