@@ -1,6 +1,6 @@
+import { toServiceMinutes } from '@makchacut/core';
 import { loadDataKeys } from '#env';
 import { fetchSeoulRouteStations, searchSeoulBusRoutes } from '#seoul-bus';
-import { toServiceMinutes } from '#service-day';
 
 // 서울 버스 API의 정류장별 막차(lastTm)를 출력한다. 경기 노선이라도 서울을 지나면 전 구간이 나온다.
 // 앞 정류장보다 이른 막차(역전)는 "⚠"로 표시한다 — 원본 값에 섞인 이상치 확인용.

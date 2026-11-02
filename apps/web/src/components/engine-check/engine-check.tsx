@@ -1,9 +1,10 @@
 'use client';
 
+import { todayInKorea } from '@makchacut/core';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePlanRequest } from '@/hooks/use-plan-request';
-import { formatKoreaClock, todayInKorea } from '@/lib/korea-time';
+import { formatKoreaClock } from '@/lib/korea-time';
 import { createSamplePlanRequest } from '@/lib/sample-plan-request';
 
 export function EngineCheck() {

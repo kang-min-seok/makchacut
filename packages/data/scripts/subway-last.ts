@@ -1,6 +1,6 @@
+import { formatClock, toServiceMinutes } from '@makchacut/core';
 import { loadDataKeys } from '#env';
 import { type KricDayCode, fetchKricTimetable, toKricStationCode } from '#kric';
-import { formatClock, toServiceMinutes } from '#service-day';
 import {
   TAGO_DAY_TYPES,
   TAGO_DIRECTIONS,

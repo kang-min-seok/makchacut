@@ -18,6 +18,9 @@
     "subway:last": "node scripts/subway-last.ts",
     "live:last-check": "node scripts/live-last-check.ts"
   },
+  "dependencies": {
+    "@makchacut/core": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^22.20.5",
     "typescript": "^5.9.0"

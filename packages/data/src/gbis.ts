@@ -1,11 +1,10 @@
+import { DAY_TYPES, type DayType } from '@makchacut/core';
+
 // 경기 버스(GBIS) 조회. 공식 API(data.go.kr v2)와, 정류장 구간 소요를 주는 GBIS 웹 엔드포인트(비공식)를 함께 다룬다.
 
 const GBIS_API_BASE = 'https://apis.data.go.kr/6410000';
 const GBIS_WEB_ENDPOINT = 'https://www.gbis.go.kr/gbis2014/schBusAPI.action';
 const REQUEST_TIMEOUT_MS = 10_000;
-
-export const DAY_TYPES = ['weekday', 'sat', 'sun', 'holiday'] as const;
-export type DayType = (typeof DAY_TYPES)[number];
 
 // 공식 v2 필드 접두사: 없음=평일, sat, sun, we=공휴일 (data.go.kr 15080662 Swagger 기준)
 const DAY_FIELD_PREFIX: Record<DayType, string> = {
