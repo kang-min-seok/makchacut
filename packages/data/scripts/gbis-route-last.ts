@@ -8,6 +8,7 @@ import {
   type GbisRouteStation,
   searchGbisRoutes,
 } from '#gbis';
+import { minutesToClock, toServiceMinutes } from '#service-day';
 
 // 경기 노선의 정류장별 막차 추정을 출력한다.
 //   회차 전 구간: 기점 막차(up) + 기점부터 누적 소요
@@ -17,8 +18,6 @@ import {
 
 const NIGHT_SPEED_KMH = 25;
 const EARTH_RADIUS_M = 6_371_000;
-const SERVICE_DAY_CUTOFF_MINUTES = 4 * 60;
-const MINUTES_PER_DAY = 24 * 60;
 const SKIPPED_STATION_PATTERN = /\((경유|미정차)\)/;
 const DAY_LABEL: Record<DayType, string> = {
   weekday: '평일',
@@ -26,20 +25,6 @@ const DAY_LABEL: Record<DayType, string> = {
   sun: '일',
   holiday: '공휴일',
 };
-
-function toServiceMinutes(clock: string): number | undefined {
-  const match = /^(\d{1,2}):?(\d{2})$/.exec(clock);
-  if (!match) return undefined;
-  const minutes = Number(match[1]) * 60 + Number(match[2]);
-  return minutes < SERVICE_DAY_CUTOFF_MINUTES ? minutes + MINUTES_PER_DAY : minutes;
-}
-
-function formatClock(minutes: number): string {
-  const rounded = Math.round(minutes) % MINUTES_PER_DAY;
-  const hh = String(Math.floor(rounded / 60)).padStart(2, '0');
-  const mm = String(rounded % 60).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
 
 function distanceMeters(a: GbisRouteStation, b: GbisRouteStation): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -120,7 +105,7 @@ stations.forEach((station, index) => {
   const offset = webSegments.length > 0 ? pttsMinutes : distanceMinutes;
   const clocks = DAY_TYPES.map((day) => {
     const start = toServiceMinutes(base[day]);
-    return start === undefined ? '-' : formatClock(start + offset);
+    return start === undefined ? '-' : minutesToClock(start + offset);
   });
   const label = station.isTurn ? `**${station.stationName}** (회차)` : station.stationName;
   console.log(

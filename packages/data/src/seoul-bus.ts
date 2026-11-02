@@ -24,7 +24,7 @@ export type SeoulRouteStation = {
   isTransfer: boolean;
 };
 
-type SeoulBusItem = Record<string, unknown>;
+export type SeoulBusItem = Record<string, unknown>;
 
 async function call(path: string, key: string, params: Record<string, string>) {
   const query = new URLSearchParams({ serviceKey: key, resultType: 'json', ...params });
@@ -71,4 +71,12 @@ export async function fetchSeoulRouteStations(
     lastTime: text(item.lastTm).replace(/^:$/, ''),
     isTransfer: item.transYn === 'Y',
   }));
+}
+
+// 노선 전체 정류장의 도착 예정. 응답 필드(isLast1 등)를 확인하는 단계라 원본 항목을 그대로 돌려준다.
+export async function fetchSeoulRouteArrivalsRaw(
+  key: string,
+  busRouteId: string,
+): Promise<SeoulBusItem[]> {
+  return call('arrive/getArrInfoByRouteAll', key, { busRouteId });
 }
