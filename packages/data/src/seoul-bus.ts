@@ -10,6 +10,12 @@ export type SeoulBusRoute = {
   startStationName: string;
   endStationName: string;
   corpName: string;
+  // 원본 노선 유형 코드 (1 공항, 2 마을, 3 간선, 4 지선, 5 순환, 6 광역, 7 인천, 8 경기, 9 폐지, 0 공용)
+  routeType: string;
+  // 조회 당일의 기점 첫차·막차 "YYYYMMDDHHMMSS"(없으면 빈 값), 배차 분(0이면 정보 없음)
+  firstBusAt: string;
+  lastBusAt: string;
+  headwayMinutes: number;
 };
 
 export type SeoulRouteStation = {
@@ -18,6 +24,10 @@ export type SeoulRouteStation = {
   arsId: string;
   stationName: string;
   direction: string;
+  lat: number;
+  lng: number;
+  // 회차 정류장 ID (노선 전체에 같은 값)
+  turnStationId: string;
   // "HH:MM" 또는 빈 값
   beginTime: string;
   lastTime: string;
@@ -53,6 +63,10 @@ export async function searchSeoulBusRoutes(key: string, keyword: string): Promis
     startStationName: text(item.stStationNm),
     endStationName: text(item.edStationNm),
     corpName: text(item.corpNm),
+    routeType: text(item.routeType),
+    firstBusAt: text(item.firstBusTm),
+    lastBusAt: text(item.lastBusTm),
+    headwayMinutes: Number(item.term) || 0,
   }));
 }
 
@@ -67,6 +81,9 @@ export async function fetchSeoulRouteStations(
     arsId: text(item.arsId),
     stationName: text(item.stationNm),
     direction: text(item.direction),
+    lat: Number(item.gpsY),
+    lng: Number(item.gpsX),
+    turnStationId: text(item.trnstnid),
     beginTime: text(item.beginTm).replace(/^:$/, ''),
     lastTime: text(item.lastTm).replace(/^:$/, ''),
     isTransfer: item.transYn === 'Y',

@@ -1,7 +1,7 @@
 import { DAY_TYPES, type DayType, minutesToClock, toServiceMinutes } from '@makchacut/core';
 import { loadDataKeys } from '#env';
 import {
-  fetchGbisRouteLastTimes,
+  fetchGbisRouteInfo,
   fetchGbisRouteStations,
   fetchGbisWebSegments,
   type GbisRouteStation,
@@ -58,7 +58,7 @@ if (!route) {
 }
 
 const [lastTimes, stations, webSegments] = await Promise.all([
-  fetchGbisRouteLastTimes(key, route.routeId),
+  fetchGbisRouteInfo(key, route.routeId),
   fetchGbisRouteStations(key, route.routeId),
   fetchGbisWebSegments(route.routeId).catch((error: unknown) => {
     console.warn(`GBIS 웹 ptts 조회 실패 — 거리 추정만 출력: ${String(error)}`);
