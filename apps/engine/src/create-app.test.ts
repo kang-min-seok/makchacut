@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_API_KEY_HEADER, ENGINE_PLAN_PATH, PlanResponseSchema } from '@makchacut/shared';
-import { createApp } from '#app';
+import { createApp } from '#create-app';
 
 const API_KEY = 'test-key-0123456789';
 const app = createApp({ apiKey: API_KEY });

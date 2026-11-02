@@ -7,9 +7,9 @@
     "#*": "./src/*.ts"
   },
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
-    "build": "tsup",
-    "start": "node dist/server.js",
+    "dev": "tsx watch --env-file-if-exists=.env src/node-server.ts",
+    "build": "tsup && node scripts/write-vercel-output.ts",
+    "start": "node dist/node-server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
