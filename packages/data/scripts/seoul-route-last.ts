@@ -1,20 +1,12 @@
 import { loadDataKeys } from '#env';
 import { fetchSeoulRouteStations, searchSeoulBusRoutes } from '#seoul-bus';
+import { toServiceMinutes } from '#service-day';
 
 // 서울 버스 API의 정류장별 막차(lastTm)를 출력한다. 경기 노선이라도 서울을 지나면 전 구간이 나온다.
 // 앞 정류장보다 이른 막차(역전)는 "⚠"로 표시한다 — 원본 값에 섞인 이상치 확인용.
 // 사용: node scripts/seoul-route-last.ts <노선번호> [busRouteId]
 
-const SERVICE_DAY_CUTOFF_MINUTES = 4 * 60;
-const MINUTES_PER_DAY = 24 * 60;
 const SKIPPED_STATION_PATTERN = /\((경유|미정차)\)/;
-
-function toServiceMinutes(clock: string): number | undefined {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(clock);
-  if (!match) return undefined;
-  const minutes = Number(match[1]) * 60 + Number(match[2]);
-  return minutes < SERVICE_DAY_CUTOFF_MINUTES ? minutes + MINUTES_PER_DAY : minutes;
-}
 
 const [routeNumber, routeIdArg] = process.argv.slice(2);
 if (!routeNumber) {

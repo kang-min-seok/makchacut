@@ -6,6 +6,7 @@ export const DATA_KEY_NAMES = [
   'DATA_GO_KR_SERVICE_KEY',
   'SEOUL_OPEN_DATA_KEY',
   'KAKAO_REST_API_KEY',
+  'KRIC_SERVICE_KEY',
 ] as const;
 
 export type DataKeyName = (typeof DATA_KEY_NAMES)[number];
