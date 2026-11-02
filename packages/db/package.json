@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@makchacut/core": "workspace:*",
     "drizzle-orm": "^0.44.0",
     "postgres": "^3.4.0"
   },

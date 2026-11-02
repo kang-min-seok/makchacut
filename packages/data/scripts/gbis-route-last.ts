@@ -1,14 +1,12 @@
+import { DAY_TYPES, type DayType, minutesToClock, toServiceMinutes } from '@makchacut/core';
 import { loadDataKeys } from '#env';
 import {
-  DAY_TYPES,
-  type DayType,
-  fetchGbisRouteLastTimes,
+  fetchGbisRouteInfo,
   fetchGbisRouteStations,
   fetchGbisWebSegments,
   type GbisRouteStation,
   searchGbisRoutes,
 } from '#gbis';
-import { minutesToClock, toServiceMinutes } from '#service-day';
 
 // 경기 노선의 정류장별 막차 추정을 출력한다.
 //   회차 전 구간: 기점 막차(up) + 기점부터 누적 소요
@@ -60,7 +58,7 @@ if (!route) {
 }
 
 const [lastTimes, stations, webSegments] = await Promise.all([
-  fetchGbisRouteLastTimes(key, route.routeId),
+  fetchGbisRouteInfo(key, route.routeId),
   fetchGbisRouteStations(key, route.routeId),
   fetchGbisWebSegments(route.routeId).catch((error: unknown) => {
     console.warn(`GBIS 웹 ptts 조회 실패 — 거리 추정만 출력: ${String(error)}`);

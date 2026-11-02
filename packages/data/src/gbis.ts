@@ -1,11 +1,10 @@
+import { DAY_TYPES, type DayType } from '@makchacut/core';
+
 // 경기 버스(GBIS) 조회. 공식 API(data.go.kr v2)와, 정류장 구간 소요를 주는 GBIS 웹 엔드포인트(비공식)를 함께 다룬다.
 
 const GBIS_API_BASE = 'https://apis.data.go.kr/6410000';
 const GBIS_WEB_ENDPOINT = 'https://www.gbis.go.kr/gbis2014/schBusAPI.action';
 const REQUEST_TIMEOUT_MS = 10_000;
-
-export const DAY_TYPES = ['weekday', 'sat', 'sun', 'holiday'] as const;
-export type DayType = (typeof DAY_TYPES)[number];
 
 // 공식 v2 필드 접두사: 없음=평일, sat, sun, we=공휴일 (data.go.kr 15080662 Swagger 기준)
 const DAY_FIELD_PREFIX: Record<DayType, string> = {
@@ -23,11 +22,17 @@ export type GbisRoute = {
   endStationName: string;
 };
 
-export type GbisRouteLastTimes = {
+export type GbisRouteInfo = {
+  turnStationId: string;
   turnStationName: string;
-  // 기점 막차(up) / 회차점 막차(down), "HH:MM"
+  // 기점(up) / 회차점(down) 첫차·막차, "HH:MM"
+  upFirst: Record<DayType, string>;
   upLast: Record<DayType, string>;
+  downFirst: Record<DayType, string>;
   downLast: Record<DayType, string>;
+  // 첨두·비첨두 배차 분 (0이면 정보 없음)
+  peakHeadway: Record<DayType, number>;
+  offPeakHeadway: Record<DayType, number>;
 };
 
 export type GbisRouteStation = {
@@ -35,6 +40,8 @@ export type GbisRouteStation = {
   stationId: string;
   stationName: string;
   isTurn: boolean;
+  // 정류장 번호(모바일 번호). 없으면 빈 값
+  stopNo: string;
   lng: number;
   lat: number;
 };
@@ -78,23 +85,31 @@ export async function searchGbisRoutes(key: string, keyword: string): Promise<Gb
   }));
 }
 
-export async function fetchGbisRouteLastTimes(
-  key: string,
-  routeId: string,
-): Promise<GbisRouteLastTimes> {
+// 필드 이름: 평일은 접두사 없이 camelCase(upLastTime), 그 외는 접두사 + PascalCase(satUpLastTime)
+function dayField(day: DayType, name: string): string {
+  const prefix = DAY_FIELD_PREFIX[day];
+  return prefix ? `${prefix}${name[0]?.toUpperCase()}${name.slice(1)}` : name;
+}
+
+function byDay<T>(read: (day: DayType) => T): Record<DayType, T> {
+  return Object.fromEntries(DAY_TYPES.map((day) => [day, read(day)])) as Record<DayType, T>;
+}
+
+export async function fetchGbisRouteInfo(key: string, routeId: string): Promise<GbisRouteInfo> {
   const body = await callApi('busrouteservice/v2/getBusRouteInfoItemv2', key, { routeId });
   const item = (body.busRouteInfoItem ?? {}) as GbisApiBody;
-  const pick = (direction: 'Up' | 'Down') =>
-    Object.fromEntries(
-      DAY_TYPES.map((day) => {
-        const prefix = DAY_FIELD_PREFIX[day];
-        const field = prefix
-          ? `${prefix}${direction}LastTime`
-          : `${direction.toLowerCase()}LastTime`;
-        return [day, text(item[field])];
-      }),
-    ) as Record<DayType, string>;
-  return { turnStationName: text(item.turnStNm), upLast: pick('Up'), downLast: pick('Down') };
+  const clock = (name: string) => byDay((day) => text(item[dayField(day, name)]));
+  const minutes = (name: string) => byDay((day) => Number(item[dayField(day, name)]) || 0);
+  return {
+    turnStationId: text(item.turnStID),
+    turnStationName: text(item.turnStNm),
+    upFirst: clock('upFirstTime'),
+    upLast: clock('upLastTime'),
+    downFirst: clock('downFirstTime'),
+    downLast: clock('downLastTime'),
+    peakHeadway: minutes('peekAlloc'),
+    offPeakHeadway: minutes('nPeekAlloc'),
+  };
 }
 
 export async function fetchGbisRouteStations(
@@ -107,6 +122,7 @@ export async function fetchGbisRouteStations(
     stationId: text(item.stationId),
     stationName: text(item.stationName),
     isTurn: item.turnYn === 'Y',
+    stopNo: text(item.mobileNo).trim(),
     lng: Number(item.x),
     lat: Number(item.y),
   }));
