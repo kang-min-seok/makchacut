@@ -47,7 +47,7 @@ export type GbisWebSegment = {
   lengthMeters: number;
 };
 
-type GbisApiBody = Record<string, unknown>;
+export type GbisApiBody = Record<string, unknown>;
 
 async function callApi(path: string, key: string, params: Record<string, string>) {
   const query = new URLSearchParams({ serviceKey: key, format: 'json', ...params });
@@ -127,4 +127,21 @@ export async function fetchGbisWebSegments(routeId: string): Promise<GbisWebSegm
     ptts: Number(item.ptts),
     lengthMeters: Number(item.length),
   }));
+}
+
+// 실시간 응답 필드를 확인하는 단계라 원본 항목을 그대로 돌려준다.
+export async function fetchGbisBusLocationsRaw(
+  key: string,
+  routeId: string,
+): Promise<GbisApiBody[]> {
+  const body = await callApi('buslocationservice/v2/getBusLocationListv2', key, { routeId });
+  return asArray(body.busLocationList);
+}
+
+export async function fetchGbisStationArrivalsRaw(
+  key: string,
+  stationId: string,
+): Promise<GbisApiBody[]> {
+  const body = await callApi('busarrivalservice/v2/getBusArrivalListv2', key, { stationId });
+  return asArray(body.busArrivalList);
 }
