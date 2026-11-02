@@ -17,8 +17,10 @@
   "dependencies": {
     "@hono/node-server": "^1.19.0",
     "@makchacut/core": "workspace:*",
+    "@makchacut/data": "workspace:*",
     "@makchacut/db": "workspace:*",
     "@makchacut/shared": "workspace:*",
+    "drizzle-orm": "^0.44.0",
     "hono": "^4.9.0",
     "zod": "^4.1.0"
   },

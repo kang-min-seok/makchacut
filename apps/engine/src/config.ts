@@ -1,3 +1,4 @@
+import { decodeServiceKey } from '@makchacut/data';
 import { z } from 'zod';
 
 const DEFAULT_PORT = 8080;
@@ -39,7 +40,8 @@ export function loadIngestConfig(env: NodeJS.ProcessEnv = process.env): IngestCo
   const parsed = IngestEnvSchema.parse(env);
   return {
     databaseUrl: parsed.DATABASE_URL,
-    dataGoKrServiceKey: parsed.DATA_GO_KR_SERVICE_KEY,
+    // Encoding 키가 들어와도 요청 시 이중 인코딩되지 않게 되돌린다
+    dataGoKrServiceKey: decodeServiceKey(parsed.DATA_GO_KR_SERVICE_KEY),
     seoulOpenDataKey: parsed.SEOUL_OPEN_DATA_KEY,
     cronSecret: parsed.INGEST_CRON_SECRET,
   };

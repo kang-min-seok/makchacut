@@ -32,12 +32,18 @@ importers:
       '@makchacut/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@makchacut/data':
+        specifier: workspace:*
+        version: link:../../packages/data
       '@makchacut/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@makchacut/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      drizzle-orm:
+        specifier: ^0.44.0
+        version: 0.44.7(postgres@3.4.9)
       hono:
         specifier: ^4.9.0
         version: 4.13.13

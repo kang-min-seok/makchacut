@@ -6,6 +6,8 @@ import { join } from 'node:path';
 const OUTPUT_DIR = '.vercel/output';
 const FUNCTION_DIR = join(OUTPUT_DIR, 'functions', 'index.func');
 const REGIONS = ['icn1'];
+// 수집 작업(/jobs/ingest)이 240초까지 돈다. Hobby + Fluid compute 최대값.
+const MAX_DURATION_SECONDS = 300;
 
 function writeJson(path: string, value: unknown) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
@@ -21,6 +23,7 @@ writeJson(join(FUNCTION_DIR, '.vc-config.json'), {
   shouldAddHelpers: false,
   shouldAddSourcemapSupport: false,
   regions: REGIONS,
+  maxDuration: MAX_DURATION_SECONDS,
 });
 
 // 모든 경로를 단일 함수로 보내고, 원래 경로를 유지한다

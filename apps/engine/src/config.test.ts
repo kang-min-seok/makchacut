@@ -21,6 +21,11 @@ describe('config', () => {
     );
   });
 
+  it('decodes an Encoding-form data.go.kr key', () => {
+    const env = { ...INGEST_ENV, DATA_GO_KR_SERVICE_KEY: 'abc%2Bdef%3D%3D' };
+    expect(loadIngestConfig(env).dataGoKrServiceKey).toBe('abc+def==');
+  });
+
   it('rejects a REST URL as DATABASE_URL', () => {
     expect(() =>
       loadIngestConfig({ ...INGEST_ENV, DATABASE_URL: 'https://ref.supabase.co' }),
