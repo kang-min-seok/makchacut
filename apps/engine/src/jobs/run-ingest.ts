@@ -4,6 +4,7 @@ import { ApiBudget, QuotaExhaustedError } from '#jobs/api-budget';
 import { finishRun, hasActiveRun, startRun, todayApiCalls } from '#jobs/ingest-run-log';
 import {
   ensureListTarget,
+  findTargets,
   isDue,
   markFailure,
   markSuccess,
@@ -38,6 +39,8 @@ export type RunIngestOptions = {
   deadline: number;
   // 수동 확인용: 이번 실행의 호출 수를 더 줄인다
   maxCalls?: number;
+  // 수동 확인용: 목록 갱신 없이 이 대상만 처리한다
+  targetIds?: readonly string[];
   now?: () => Date;
 };
 
@@ -88,7 +91,7 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
 
   try {
     const listTarget = await ensureListTarget(db, ingester.source);
-    if (isDue(listTarget, ingester.listRefreshHours, ctx.now)) {
+    if (!options.targetIds && isDue(listTarget, ingester.listRefreshHours, ctx.now)) {
       try {
         const targets = await ingester.listTargets(ctx);
         await syncTargets(db, ingester.source, targets, ctx.now);
@@ -102,16 +105,18 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
     }
 
     const tried = new Set<number>();
+    const nextBatch = () =>
+      options.targetIds
+        ? findTargets(db, ingester.source, options.targetIds)
+        : pickDueTargets(
+            db,
+            ingester.source,
+            ingester.targetRefreshHours,
+            TARGET_BATCH_SIZE + tried.size,
+            ctx.now,
+          );
     while (Date.now() < options.deadline && budget.remaining > 0) {
-      const batch = (
-        await pickDueTargets(
-          db,
-          ingester.source,
-          ingester.targetRefreshHours,
-          TARGET_BATCH_SIZE + tried.size,
-          ctx.now,
-        )
-      ).filter((target) => !tried.has(target.id));
+      const batch = (await nextBatch()).filter((target) => !tried.has(target.id));
       if (batch.length === 0) break;
       for (const target of batch) {
         if (Date.now() >= options.deadline) break;

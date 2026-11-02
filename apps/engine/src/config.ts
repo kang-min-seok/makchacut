@@ -17,6 +17,8 @@ const IngestEnvSchema = z.object({
   DATA_GO_KR_SERVICE_KEY: z.string().min(1),
   SEOUL_OPEN_DATA_KEY: z.string().min(1),
   INGEST_CRON_SECRET: z.string().min(MIN_CRON_SECRET_LENGTH),
+  // 계산 단계의 지하철역 좌표 보완에만 쓴다. 없으면 그 단계만 건너뛴다.
+  KAKAO_REST_API_KEY: z.string().min(1).optional(),
 });
 
 export type EngineConfig = {
@@ -29,6 +31,7 @@ export type IngestConfig = {
   dataGoKrServiceKey: string;
   seoulOpenDataKey: string;
   cronSecret: string;
+  kakaoRestApiKey?: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
@@ -44,5 +47,6 @@ export function loadIngestConfig(env: NodeJS.ProcessEnv = process.env): IngestCo
     dataGoKrServiceKey: decodeServiceKey(parsed.DATA_GO_KR_SERVICE_KEY),
     seoulOpenDataKey: parsed.SEOUL_OPEN_DATA_KEY,
     cronSecret: parsed.INGEST_CRON_SECRET,
+    kakaoRestApiKey: parsed.KAKAO_REST_API_KEY,
   };
 }
