@@ -12,7 +12,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check:keys": "node scripts/check-keys.ts"
+    "check:keys": "node scripts/check-keys.ts",
+    "gbis:route-last": "node scripts/gbis-route-last.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
