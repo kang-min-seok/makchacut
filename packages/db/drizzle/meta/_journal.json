@@ -15,6 +15,13 @@
       "when": 1793603912669,
       "tag": "0001_transit_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793604740950,
+      "tag": "0002_ingest_progress",
+      "breakpoints": true
     }
   ]
 }

@@ -43,6 +43,8 @@ export const ingestRun = pgTable('ingest_run', {
   source: text('source').notNull(),
   status: ingestStatus('status').notNull().default('running'),
   rowCount: integer('row_count'),
+  // 이 실행에서 쓴 외부 API 호출 수(재시도 포함). 출처별 하루 한도를 여기서 센다.
+  apiCalls: integer('api_calls').notNull().default(0),
   errorMessage: text('error_message'),
   startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
   finishedAt: timestamp('finished_at', { withTimezone: true }),
@@ -136,6 +138,9 @@ export const routeStop = pgTable(
       .references(() => stop.id, { onDelete: 'cascade' }),
     direction: routeDirection('direction').notNull(),
     distanceFromOriginM: integer('distance_from_origin_m'),
+    // 직전 정류장 → 이 정류장 구간 (GBIS 웹 ptts·length). 정류장 목록을 다시 받아도 유지한다.
+    segmentSeconds: integer('segment_seconds'),
+    segmentMeters: integer('segment_meters'),
   },
   (t) => [primaryKey({ columns: [t.routeId, t.seq] }), index('route_stop_stop_idx').on(t.stopId)],
 ).enableRLS();
@@ -171,6 +176,26 @@ export const busStopLast = pgTable(
     primaryKey({ columns: [t.routeId, t.seq, t.dayType] }),
     foreignKey({
       name: 'bus_stop_last_route_stop_fk',
+      columns: [t.routeId, t.seq],
+      foreignColumns: [routeStop.routeId, routeStop.seq],
+    }).onDelete('cascade'),
+  ],
+).enableRLS();
+
+// 서울 버스 API 정류장별 막차(lastTm) 원본. 조회일의 요일 유형으로 저장하고, bus_stop_last 계산의 입력으로 쓴다.
+export const seoulStopLast = pgTable(
+  'seoul_stop_last',
+  {
+    routeId: integer('route_id').notNull(),
+    seq: integer('seq').notNull(),
+    dayType: dayType('day_type').notNull(),
+    lastMinutes: real('last_minutes').notNull(),
+    observedOn: date('observed_on', { mode: 'string' }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.routeId, t.seq, t.dayType] }),
+    foreignKey({
+      name: 'seoul_stop_last_route_stop_fk',
       columns: [t.routeId, t.seq],
       foreignColumns: [routeStop.routeId, routeStop.seq],
     }).onDelete('cascade'),
