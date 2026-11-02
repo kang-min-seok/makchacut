@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { ENGINE_PLAN_PATH } from '@makchacut/shared';
 import { type EngineConfig, loadIngestConfig } from '#config';
+import { runComputeJob } from '#compute/compute-job';
 import { runIngestJob } from '#jobs/ingest-job';
 import { requireApiKey } from '#middleware/require-api-key';
 import { createJobsRoute, type JobsDeps } from '#routes/jobs';
@@ -10,6 +11,7 @@ const JOBS_PATH = '/jobs';
 const DEFAULT_JOBS_DEPS: JobsDeps = {
   loadConfig: () => loadIngestConfig(),
   runIngest: runIngestJob,
+  runCompute: runComputeJob,
 };
 
 export function createApp(

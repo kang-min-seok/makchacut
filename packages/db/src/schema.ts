@@ -1,4 +1,4 @@
-import { DAY_TYPES } from '@makchacut/core';
+import { CONFIDENCE_LEVELS, DAY_TYPES, LAST_TIME_SOURCES } from '@makchacut/core';
 import {
   boolean,
   date,
@@ -35,8 +35,8 @@ export const stopMode = pgEnum('stop_mode', ['bus', 'subway']);
 export const routeDirection = pgEnum('route_direction', ['outbound', 'inbound']);
 // 상행·내선 / 하행·외선
 export const trainDirection = pgEnum('train_direction', ['up', 'down']);
-export const lastTimeSource = pgEnum('last_time_source', ['seoul_api', 'gbis_eta', 'distance']);
-export const confidence = pgEnum('confidence', ['low', 'medium', 'high']);
+export const lastTimeSource = pgEnum('last_time_source', LAST_TIME_SOURCES);
+export const confidence = pgEnum('confidence', CONFIDENCE_LEVELS);
 
 export const ingestRun = pgTable('ingest_run', {
   id: serial('id').primaryKey(),

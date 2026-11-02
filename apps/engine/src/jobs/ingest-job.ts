@@ -11,6 +11,7 @@ const DB_CLOSE_TIMEOUT_SECONDS = 5;
 export type IngestJobRequest = {
   source: IngestSource;
   maxCalls?: number;
+  targetIds?: string[];
 };
 
 export type RunIngestJob = (
@@ -28,6 +29,7 @@ export const runIngestJob: RunIngestJob = async (config, request) => {
       keys: { dataGoKr: config.dataGoKrServiceKey, seoulOpenData: config.seoulOpenDataKey },
       deadline: Date.now() + TIME_BUDGET_MS,
       maxCalls: request.maxCalls,
+      targetIds: request.targetIds,
     });
   } finally {
     await db.$client.end({ timeout: DB_CLOSE_TIMEOUT_SECONDS });

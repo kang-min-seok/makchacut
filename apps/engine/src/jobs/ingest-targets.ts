@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import type { DayType } from '@makchacut/core';
 import { type DbExecutor, ingestTarget } from '@makchacut/db';
 import { chunk } from '#jobs/stores/chunk';
@@ -101,6 +101,30 @@ export async function pickDueTargets(
       asc(ingestTarget.id),
     )
     .limit(limit);
+}
+
+// 수동 지정 대상(점검 노선 먼저 받기 등). 갱신 주기와 무관하게 고르고, 아직 목록에 없으면 대상 행을 만든다.
+export async function findTargets(
+  db: DbExecutor,
+  source: IngestSource,
+  targetIds: readonly string[],
+): Promise<IngestTargetRow[]> {
+  if (targetIds.length === 0) return [];
+  await db
+    .insert(ingestTarget)
+    .values(targetIds.map((targetId) => ({ source, targetId })))
+    .onConflictDoNothing();
+  return db
+    .select()
+    .from(ingestTarget)
+    .where(
+      and(
+        eq(ingestTarget.source, source),
+        inArray(ingestTarget.targetId, [...targetIds]),
+        isNull(ingestTarget.removedAt),
+      ),
+    )
+    .orderBy(asc(ingestTarget.id));
 }
 
 export async function markSuccess(db: DbExecutor, id: number, now: Date): Promise<void> {
