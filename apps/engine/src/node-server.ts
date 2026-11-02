@@ -1,5 +1,5 @@
 import { serve } from '@hono/node-server';
-import { createApp } from '#app';
+import { createApp } from '#create-app';
 import { loadConfig } from '#config';
 
 const config = loadConfig();
