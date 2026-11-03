@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, ne, sql } from 'drizzle-orm';
 import { todayInKorea } from '@makchacut/core';
 import { type DbExecutor, ingestRun } from '@makchacut/db';
 
@@ -38,6 +38,27 @@ export async function hasActiveRun(db: DbExecutor, source: string, now: Date): P
     )
     .limit(1);
   return rows.length > 0;
+}
+
+// 오늘 이 출처에서 가장 최근에 끝난 실행의 error_message (없으면 undefined)
+export async function lastFinishedRunMessage(
+  db: DbExecutor,
+  source: string,
+  now: Date,
+): Promise<string | null | undefined> {
+  const [row] = await db
+    .select({ errorMessage: ingestRun.errorMessage })
+    .from(ingestRun)
+    .where(
+      and(
+        eq(ingestRun.source, source),
+        ne(ingestRun.status, 'running'),
+        gte(ingestRun.startedAt, startOfKoreaDay(now)),
+      ),
+    )
+    .orderBy(desc(ingestRun.startedAt))
+    .limit(1);
+  return row?.errorMessage;
 }
 
 export async function startRun(db: DbExecutor, source: string): Promise<number> {

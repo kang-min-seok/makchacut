@@ -1,7 +1,13 @@
 import { dayTypeOf, todayInKorea } from '@makchacut/core';
 import type { Db } from '@makchacut/db';
 import { ApiBudget, QuotaExhaustedError } from '#jobs/api-budget';
-import { finishRun, hasActiveRun, startRun, todayApiCalls } from '#jobs/ingest-run-log';
+import {
+  finishRun,
+  hasActiveRun,
+  lastFinishedRunMessage,
+  startRun,
+  todayApiCalls,
+} from '#jobs/ingest-run-log';
 import {
   ensureListTarget,
   findTargets,
@@ -13,15 +19,18 @@ import {
 } from '#jobs/ingest-targets';
 import type { IngestContext, IngestKeys, SourceIngester } from '#jobs/sources/source-ingester';
 import { loadHolidayDates } from '#jobs/stores/holiday-store';
+import { isUpstreamStopMessage, UpstreamGuard, upstreamStopMessage } from '#jobs/upstream-guard';
 
 const TARGET_BATCH_SIZE = 50;
 const MAX_FAILURE_SAMPLES = 5;
 
-export type IngestStopReason = 'done' | 'quota' | 'time' | 'busy';
+export type IngestStopReason = 'done' | 'quota' | 'time' | 'busy' | 'upstream';
 
 export type IngestSummary = {
   source: string;
   stoppedBy: IngestStopReason;
+  // 같은 날 직전 회차가 원천 장애로 멈춰, 첫 대상을 시험 호출로 삼았는지
+  probed: boolean;
   listRefreshed: boolean;
   succeeded: number;
   failed: number;
@@ -59,6 +68,7 @@ async function createContext(options: RunIngestOptions, budget: ApiBudget): Prom
 }
 
 // 출처 하나를 한도·시간 안에서 수집한다. 목록이 오래됐으면 먼저 갱신하고, 오래전에 성공한 대상부터 처리한다.
+// 대상이 연달아 실패하면 원천 장애로 보고 멈춰 하루 한도를 아낀다.
 export async function runIngest(options: RunIngestOptions): Promise<IngestSummary> {
   const { db, ingester } = options;
   const clock = options.now ?? (() => new Date());
@@ -68,6 +78,7 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
   const summary: IngestSummary = {
     source: ingester.source,
     stoppedBy: 'done',
+    probed: false,
     listRefreshed: false,
     succeeded: 0,
     failed: 0,
@@ -79,10 +90,18 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
   if (await hasActiveRun(db, ingester.source, startedAt)) return { ...summary, stoppedBy: 'busy' };
   if (quotaLeft === 0) return { ...summary, stoppedBy: 'quota' };
 
-  const budget = new ApiBudget(Math.min(quotaLeft, options.maxCalls ?? quotaLeft));
+  summary.probed = isUpstreamStopMessage(
+    await lastFinishedRunMessage(db, ingester.source, startedAt),
+  );
+  const guard = new UpstreamGuard({ probing: summary.probed });
+  const budget = new ApiBudget(
+    Math.min(quotaLeft, options.maxCalls ?? quotaLeft),
+    () => guard.allowsRetry,
+  );
   const ctx = await createContext(options, budget);
   const runId = await startRun(db, ingester.source);
   const recordFailure = (label: string, error: unknown) => {
+    guard.recordFailure();
     summary.failed += 1;
     if (summary.failures.length < MAX_FAILURE_SAMPLES) {
       summary.failures.push(`${label}: ${String(error)}`);
@@ -96,6 +115,7 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
         const targets = await ingester.listTargets(ctx);
         await syncTargets(db, ingester.source, targets, ctx.now);
         await markSuccess(db, listTarget.id, ctx.now);
+        guard.recordSuccess();
         summary.listRefreshed = true;
       } catch (error) {
         if (error instanceof QuotaExhaustedError) throw error;
@@ -115,15 +135,16 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
             TARGET_BATCH_SIZE + tried.size,
             ctx.now,
           );
-    while (Date.now() < options.deadline && budget.remaining > 0) {
+    while (!guard.tripped && Date.now() < options.deadline && budget.remaining > 0) {
       const batch = (await nextBatch()).filter((target) => !tried.has(target.id));
       if (batch.length === 0) break;
       for (const target of batch) {
-        if (Date.now() >= options.deadline) break;
+        if (guard.tripped || Date.now() >= options.deadline) break;
         tried.add(target.id);
         try {
           summary.rowCount += await ingester.ingestTarget(ctx, target);
           await markSuccess(db, target.id, clock());
+          guard.recordSuccess();
           summary.succeeded += 1;
         } catch (error) {
           if (error instanceof QuotaExhaustedError) throw error;
@@ -132,7 +153,8 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
         }
       }
     }
-    if (Date.now() >= options.deadline) summary.stoppedBy = 'time';
+    if (guard.tripped) summary.stoppedBy = 'upstream';
+    else if (Date.now() >= options.deadline) summary.stoppedBy = 'time';
     else if (budget.remaining === 0) summary.stoppedBy = 'quota';
   } catch (error) {
     if (!(error instanceof QuotaExhaustedError)) {
@@ -149,11 +171,16 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
 
   summary.apiCalls = budget.used;
   summary.quotaLeftToday = quotaLeft - budget.used;
+  // 중단 이유를 맨 앞에 두어야 같은 날 다음 회차가 시험 호출부터 한다
+  const messages =
+    summary.stoppedBy === 'upstream'
+      ? [upstreamStopMessage(guard.streak), ...summary.failures]
+      : summary.failures;
   await finishRun(db, runId, {
     status: 'succeeded',
     rowCount: summary.rowCount,
     apiCalls: budget.used,
-    errorMessage: summary.failures.length > 0 ? summary.failures.join('\n') : null,
+    errorMessage: messages.length > 0 ? messages.join('\n') : null,
   });
   return summary;
 }
