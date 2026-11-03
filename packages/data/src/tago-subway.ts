@@ -1,3 +1,4 @@
+import { httpError } from '#http-error';
 // TAGO 지하철정보(data.go.kr 15098554). 신분당·수인분당·경강·GTX-A·공항·경의중앙 등 역별 시간표를 준다. 열차번호는 없다.
 // 오퍼레이션 이름은 대문자 Get…이다(소문자는 NO_OPENAPI_SERVICE_ERROR).
 
@@ -40,7 +41,7 @@ async function call(operation: string, key: string, params: Record<string, strin
   const res = await fetch(`${TAGO_SUBWAY_BASE}/${operation}?${query.toString()}`, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`TAGO ${operation} HTTP ${res.status}`);
+  if (!res.ok) throw await httpError(`TAGO ${operation}`, res, [key]);
   const json = (await res.json()) as {
     response?: {
       header?: { resultCode?: string; resultMsg?: string };

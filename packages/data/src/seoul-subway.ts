@@ -1,3 +1,4 @@
+import { httpError } from '#http-error';
 // 서울 열린데이터광장 지하철(서울교통공사) 역 목록·역별 시간표. 키는 SEOUL_OPEN_DATA_KEY.
 // 한 번에 최대 1,000행이다(넘으면 ERROR-336). 역·요일·방향 하나는 200~250행이라 한 번에 받는다.
 
@@ -49,7 +50,7 @@ async function call(service: string, key: string, path: string[]): Promise<Seoul
   const res = await fetch(`${SEOUL_OPEN_DATA_BASE}/${segments.join('/')}/`, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`서울 열린데이터 ${service} HTTP ${res.status}`);
+  if (!res.ok) throw await httpError(`서울 열린데이터 ${service}`, res, [key]);
   const json = (await res.json()) as Record<string, SeoulOpenDataBody | SeoulOpenDataResult>;
   // 정상이면 { [service]: { RESULT, row } }, 오류·데이터 없음이면 최상위 { RESULT }
   const body = json[service] as SeoulOpenDataBody | undefined;

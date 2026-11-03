@@ -1,3 +1,4 @@
+import { previewBody } from '#http-error';
 // 국가철도공단 철도데이터포털(KRIC, data.kric.go.kr) 열차별 운행시각표. 열차번호(trnNo)와 급행 구분을 준다.
 // data.go.kr 15041665는 LINK형이라 키를 철도데이터포털에서 따로 받는다.
 
@@ -69,7 +70,7 @@ export async function fetchKricTimetable(
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   const body = await res.text();
-  if (!res.ok) throw new Error(`KRIC HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`KRIC HTTP ${res.status}: ${previewBody(body, [key])}`);
   let json: unknown;
   try {
     json = JSON.parse(body);

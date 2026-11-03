@@ -1,3 +1,4 @@
+import { httpError } from '#http-error';
 import { DAY_TYPES, type DayType } from '@makchacut/core';
 
 // 경기 버스(GBIS) 조회. 공식 API(data.go.kr v2)와, 정류장 구간 소요를 주는 GBIS 웹 엔드포인트(비공식)를 함께 다룬다.
@@ -61,7 +62,7 @@ async function callApi(path: string, key: string, params: Record<string, string>
   const res = await fetch(`${GBIS_API_BASE}/${path}?${query.toString()}`, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`GBIS ${path} HTTP ${res.status}`);
+  if (!res.ok) throw await httpError(`GBIS ${path}`, res, [key]);
   const json = (await res.json()) as { response?: { msgBody?: GbisApiBody } };
   return json.response?.msgBody ?? {};
 }
@@ -135,7 +136,7 @@ export async function fetchGbisWebSegments(routeId: string): Promise<GbisWebSegm
     body: new URLSearchParams({ cmd: 'searchRouteJson', routeId }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`GBIS web HTTP ${res.status}`);
+  if (!res.ok) throw await httpError('GBIS web', res);
   const json = (await res.json()) as { result?: { estimateTime?: unknown } };
   return asArray(json.result?.estimateTime).map((item) => ({
     seq: Number(item.staOrder),

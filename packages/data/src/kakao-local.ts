@@ -1,3 +1,4 @@
+import { httpError } from '#http-error';
 // 카카오 로컬 키워드 검색으로 지하철역 좌표를 찾는다. 서울교통공사 역 목록 API에는 좌표가 없다. 키는 KAKAO_REST_API_KEY.
 
 const KAKAO_KEYWORD_URL = 'https://dapi.kakao.com/v2/local/search/keyword.json';
@@ -23,7 +24,7 @@ export async function searchKakaoSubwayPlaces(key: string, query: string): Promi
     headers: { Authorization: `KakaoAK ${key}` },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`카카오 키워드 검색 HTTP ${res.status}`);
+  if (!res.ok) throw await httpError('카카오 키워드 검색', res, [key]);
   const json = (await res.json()) as {
     documents?: { place_name?: string; x?: string; y?: string }[];
   };
