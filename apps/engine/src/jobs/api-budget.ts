@@ -1,7 +1,9 @@
 import { withRetry } from '#jobs/retry';
 
 const RETRY_ATTEMPTS = 3;
+const SINGLE_ATTEMPT = 1;
 const RETRY_DELAY_MS = 1_000;
+const ALWAYS_RETRY = () => true;
 
 export class QuotaExhaustedError extends Error {
   constructor() {
@@ -13,7 +15,11 @@ export class QuotaExhaustedError extends Error {
 export class ApiBudget {
   #used = 0;
 
-  constructor(private readonly limit: number) {}
+  // retryAllowed가 false면 실패해도 다시 부르지 않는다(원천 장애 중 한도 절약)
+  constructor(
+    private readonly limit: number,
+    private readonly retryAllowed: () => boolean = ALWAYS_RETRY,
+  ) {}
 
   get used(): number {
     return this.#used;
@@ -31,7 +37,7 @@ export class ApiBudget {
         return request();
       },
       {
-        attempts: RETRY_ATTEMPTS,
+        attempts: this.retryAllowed() ? RETRY_ATTEMPTS : SINGLE_ATTEMPT,
         delayMs: RETRY_DELAY_MS,
         isRetryable: (error) => !(error instanceof QuotaExhaustedError),
       },

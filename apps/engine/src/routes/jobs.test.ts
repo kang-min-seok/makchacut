@@ -16,6 +16,7 @@ const CONFIG: IngestConfig = {
 const SUMMARY: IngestSummary = {
   source: 'holiday',
   stoppedBy: 'done',
+  probed: false,
   listRefreshed: true,
   succeeded: 2,
   failed: 0,

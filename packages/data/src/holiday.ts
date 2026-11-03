@@ -1,3 +1,4 @@
+import { httpError } from '#http-error';
 // 한국천문연구원 특일 정보(data.go.kr 15012690) 공휴일. 대체공휴일·선거일이 포함된다. 연 1회 호출이면 된다.
 
 const SPECIAL_DAY_BASE = 'https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService';
@@ -33,7 +34,7 @@ export async function fetchHolidays(key: string, year: number): Promise<Holiday[
   const res = await fetch(`${SPECIAL_DAY_BASE}/getRestDeInfo?${query.toString()}`, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`특일 getRestDeInfo HTTP ${res.status}`);
+  if (!res.ok) throw await httpError('특일 getRestDeInfo', res, [key]);
   const json = (await res.json()) as {
     response?: {
       header?: { resultCode?: string; resultMsg?: string };

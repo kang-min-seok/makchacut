@@ -1,3 +1,4 @@
+import { httpError } from '#http-error';
 // 서울 버스(ws.bus.go.kr, data.go.kr 키). 서울을 지나는 경기 노선도 "<번호><지역>"(예: 4108화성)으로 들어 있다.
 
 const SEOUL_BUS_BASE = 'http://ws.bus.go.kr/api/rest';
@@ -41,7 +42,7 @@ async function call(path: string, key: string, params: Record<string, string>) {
   const res = await fetch(`${SEOUL_BUS_BASE}/${path}?${query.toString()}`, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`서울 버스 ${path} HTTP ${res.status}`);
+  if (!res.ok) throw await httpError(`서울 버스 ${path}`, res, [key]);
   const json = (await res.json()) as {
     msgHeader?: { headerCd?: string; headerMsg?: string };
     msgBody?: { itemList?: SeoulBusItem[] | null };
