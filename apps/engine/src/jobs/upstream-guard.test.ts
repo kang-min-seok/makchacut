@@ -44,6 +44,21 @@ describe('UpstreamGuard', () => {
     expect(guard.tripped).toBe(false);
   });
 
+  it('does not count data errors as upstream failures', () => {
+    const guard = new UpstreamGuard({ probing: false, limit: 3 });
+    failTimes(guard, 2);
+    guard.recordDataError();
+    failTimes(guard, 2);
+    expect(guard.tripped).toBe(false);
+  });
+
+  it('ends probing when the probe gets a data error', () => {
+    const guard = new UpstreamGuard({ probing: true, limit: 3 });
+    guard.recordDataError();
+    guard.recordFailure();
+    expect(guard.tripped).toBe(false);
+  });
+
   it('allows retries only until the first failure in a row', () => {
     const guard = new UpstreamGuard({ probing: false });
     expect(guard.allowsRetry).toBe(true);

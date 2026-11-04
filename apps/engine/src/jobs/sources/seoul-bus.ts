@@ -15,6 +15,7 @@ import {
 } from '#jobs/stores/route-store';
 import { replaceSeoulStopLast } from '#jobs/stores/seoul-stop-last-store';
 import { ensureStops } from '#jobs/stores/stop-store';
+import { TargetDataError } from '#jobs/target-data-error';
 
 // 개발계정 1,000건/일에서 수동 확인 스크립트 몫을 남긴다
 const DAILY_QUOTA = 950;
@@ -67,7 +68,7 @@ async function ingestTarget(ctx: IngestContext, target: { targetId: string }) {
     fetchSeoulRouteStations(ctx.keys.dataGoKr, busRouteId),
   );
   const routeId = await findRouteId(ctx.db, 'seoul_bus', busRouteId);
-  if (routeId === undefined) throw new Error(`노선 ${busRouteId}이 목록에 없습니다`);
+  if (routeId === undefined) throw new TargetDataError(`노선 ${busRouteId}이 목록에 없습니다`);
 
   const turnStationId = stations[0]?.turnStationId ?? '';
   const turnIndex = stations.findIndex((s) => s.stationId === turnStationId);
