@@ -16,6 +16,7 @@ import {
   upsertRoutes,
 } from '#jobs/stores/route-store';
 import { ensureStops } from '#jobs/stores/stop-store';
+import { TargetDataError } from '#jobs/target-data-error';
 
 // 개발계정 1,000건/일에서 수동 확인 스크립트 몫을 남긴다
 const DAILY_QUOTA = 950;
@@ -52,7 +53,7 @@ async function ingestTarget(ctx: IngestContext, target: { targetId: string }) {
   );
   const info = await ctx.budget.call(() => fetchGbisRouteInfo(ctx.keys.dataGoKr, gbisRouteId));
   const routeId = await findRouteId(ctx.db, 'gbis', gbisRouteId);
-  if (routeId === undefined) throw new Error(`노선 ${gbisRouteId}이 목록에 없습니다`);
+  if (routeId === undefined) throw new TargetDataError(`노선 ${gbisRouteId}이 목록에 없습니다`);
 
   const turnIndex = stations.findIndex((s) => s.isTurn);
   const directions = directionsByTurn(stations.length, turnIndex);

@@ -19,6 +19,7 @@ import {
 } from '#jobs/ingest-targets';
 import type { IngestContext, IngestKeys, SourceIngester } from '#jobs/sources/source-ingester';
 import { loadHolidayDates } from '#jobs/stores/holiday-store';
+import { TargetDataError } from '#jobs/target-data-error';
 import { isUpstreamStopMessage, UpstreamGuard, upstreamStopMessage } from '#jobs/upstream-guard';
 
 const TARGET_BATCH_SIZE = 50;
@@ -101,7 +102,8 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
   const ctx = await createContext(options, budget);
   const runId = await startRun(db, ingester.source);
   const recordFailure = (label: string, error: unknown) => {
-    guard.recordFailure();
+    if (error instanceof TargetDataError) guard.recordDataError();
+    else guard.recordFailure();
     summary.failed += 1;
     if (summary.failures.length < MAX_FAILURE_SAMPLES) {
       summary.failures.push(`${label}: ${String(error)}`);

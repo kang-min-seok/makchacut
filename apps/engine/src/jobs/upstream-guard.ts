@@ -50,4 +50,9 @@ export class UpstreamGuard {
   recordFailure(): void {
     this.#streak += 1;
   }
+
+  // 원천이 응답은 했으므로 장애가 아니다 — 성공과 같이 연속 실패와 시험 호출을 끝낸다
+  recordDataError(): void {
+    this.recordSuccess();
+  }
 }

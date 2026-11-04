@@ -7,6 +7,8 @@ import { chunk } from '#jobs/stores/chunk';
 export const LIST_TARGET_ID = '*';
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MAX_ERROR_LENGTH = 500;
+// 이만큼 연달아 실패한 대상은 다른 대상을 다 처리한 뒤로 미룬다
+const REPEATED_FAILURE_COUNT = 3;
 
 export type IngestSource = (typeof ingestTarget.source.enumValues)[number];
 
@@ -74,6 +76,7 @@ export async function syncTargets(
 }
 
 // 한 번도 성공하지 못한 대상, 오래전에 성공한 대상 순. 같은 순위면 최근에 시도하지 않은 것부터.
+// 계속 실패하는 대상(데이터 불일치 등)이 맨 앞을 막아 갱신이 멈추지 않게 반복 실패 대상은 맨 뒤로 보낸다.
 export async function pickDueTargets(
   db: DbExecutor,
   source: IngestSource,
@@ -96,6 +99,7 @@ export async function pickDueTargets(
       ),
     )
     .orderBy(
+      sql`(${ingestTarget.failCount} >= ${REPEATED_FAILURE_COUNT}) asc`,
       sql`${ingestTarget.lastSuccessAt} asc nulls first`,
       sql`${ingestTarget.lastAttemptAt} asc nulls first`,
       asc(ingestTarget.id),

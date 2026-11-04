@@ -14,6 +14,7 @@ import type { IngestContext, SourceIngester } from '#jobs/sources/source-ingeste
 import { findRouteId, upsertRoutes } from '#jobs/stores/route-store';
 import { ensureStops } from '#jobs/stores/stop-store';
 import { replaceStationTimes, type StationDeparture } from '#jobs/stores/subway-store';
+import { TargetDataError } from '#jobs/target-data-error';
 
 // 서울교통공사 시간표가 있는 노선. 신분당·수인분당·GTX-A 등은 목록에만 있고 시간표가 없다(M5에서 TAGO로).
 const SEOUL_METRO_LINES = new Set([
@@ -98,7 +99,7 @@ async function ingestTarget(ctx: IngestContext, target: { targetId: string }) {
   ]);
   const stopId = stopIds.get(stationCode);
   if (routeId === undefined || stopId === undefined) {
-    throw new Error(`노선(${lineName}) 또는 역(${stationCode})이 목록에 없습니다`);
+    throw new TargetDataError(`노선(${lineName}) 또는 역(${stationCode})이 목록에 없습니다`);
   }
 
   const departures: StationDeparture[] = tables.flatMap(({ weekTag, inoutTag, rows }) =>
