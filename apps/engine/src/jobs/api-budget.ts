@@ -1,3 +1,4 @@
+import type { CallPacer } from '#jobs/call-pacer';
 import { withRetry } from '#jobs/retry';
 
 const RETRY_ATTEMPTS = 3;
@@ -15,10 +16,12 @@ export class QuotaExhaustedError extends Error {
 export class ApiBudget {
   #used = 0;
 
-  // retryAllowed가 false면 실패해도 다시 부르지 않는다(원천 장애 중 한도 절약)
+  // retryAllowed가 false면 실패해도 다시 부르지 않는다(원천 장애 중 한도 절약).
+  // pacer가 있으면 재시도를 포함한 매 호출 전에 간격을 맞춘다.
   constructor(
     private readonly limit: number,
     private readonly retryAllowed: () => boolean = ALWAYS_RETRY,
+    private readonly pacer?: CallPacer,
   ) {}
 
   get used(): number {
@@ -31,9 +34,10 @@ export class ApiBudget {
 
   call<T>(request: () => Promise<T>): Promise<T> {
     return withRetry(
-      () => {
+      async () => {
         if (this.#used >= this.limit) throw new QuotaExhaustedError();
         this.#used += 1;
+        await this.pacer?.wait();
         return request();
       },
       {

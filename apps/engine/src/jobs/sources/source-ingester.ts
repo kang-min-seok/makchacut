@@ -27,6 +27,8 @@ export type SourceIngester = {
   listRefreshHours: number;
   // 같은 대상을 다시 받기까지 최소 간격
   targetRefreshHours: number;
+  // 외부 호출 사이 최소 간격. 없으면 쉬지 않고 부른다.
+  minCallIntervalMs?: number;
   listTargets: (ctx: IngestContext) => Promise<TargetKey[]>;
   // 쓴 행 수를 돌려준다
   ingestTarget: (ctx: IngestContext, target: IngestTargetRow) => Promise<number>;
