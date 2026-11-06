@@ -6,12 +6,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@makchacut/core": "workspace:*",
+    "@makchacut/data": "workspace:*",
     "@makchacut/shared": "workspace:*",
+    "@tanstack/react-query": "^5.106.1",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
     "lucide-react": "^1.60.0",
@@ -24,6 +27,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@makchacut/eslint-config": "workspace:*",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -32,6 +36,6 @@
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "@makchacut/eslint-config": "workspace:*"
+    "vitest": "^3.2.7"
   }
 }

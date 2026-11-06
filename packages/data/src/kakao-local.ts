@@ -15,6 +15,99 @@ export type KakaoPlace = {
   lng: number;
 };
 
+// 장소·주소 검색 결과 한 건 (사용자 검색창 표시용)
+export type KakaoSearchResult = {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+};
+
+type KakaoKeywordDocument = {
+  id?: string;
+  place_name?: string;
+  address_name?: string;
+  road_address_name?: string;
+  x?: string;
+  y?: string;
+};
+
+type KakaoAddressDocument = {
+  address_name?: string;
+  road_address?: { address_name?: string; building_name?: string } | null;
+  x?: string;
+  y?: string;
+};
+
+function toPoint(doc: { x?: string; y?: string }): { lat: number; lng: number } | undefined {
+  const lat = Number(doc.y);
+  const lng = Number(doc.x);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined;
+}
+
+async function kakaoGet<T>(key: string, url: string, params: URLSearchParams, label: string) {
+  const res = await fetch(`${url}?${params.toString()}`, {
+    headers: { Authorization: `KakaoAK ${key}` },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!res.ok) throw await httpError(label, res, [key]);
+  const json = (await res.json()) as { documents?: T[] };
+  return json.documents ?? [];
+}
+
+// 키워드(장소 이름) 검색. 도로명 주소가 있으면 그걸 주소로 쓴다.
+export async function searchKakaoKeywordPlaces(
+  key: string,
+  query: string,
+  size: number,
+): Promise<KakaoSearchResult[]> {
+  const params = new URLSearchParams({ query, size: String(size) });
+  const docs = await kakaoGet<KakaoKeywordDocument>(
+    key,
+    KAKAO_KEYWORD_URL,
+    params,
+    '카카오 키워드 검색',
+  );
+  return docs.flatMap((doc) => {
+    const point = toPoint(doc);
+    const address = doc.road_address_name || doc.address_name;
+    return point && doc.id && doc.place_name && address
+      ? [{ id: `place:${doc.id}`, name: doc.place_name, address, ...point }]
+      : [];
+  });
+}
+
+// 주소 검색. 도로명 주소를 이름으로, 건물 이름이 있으면 덧붙인다.
+export async function searchKakaoAddresses(
+  key: string,
+  query: string,
+  size: number,
+): Promise<KakaoSearchResult[]> {
+  const params = new URLSearchParams({ query, size: String(size) });
+  const docs = await kakaoGet<KakaoAddressDocument>(
+    key,
+    KAKAO_ADDRESS_URL,
+    params,
+    '카카오 주소 검색',
+  );
+  return docs.flatMap((doc) => {
+    const point = toPoint(doc);
+    const road = doc.road_address?.address_name;
+    const name = road || doc.address_name;
+    if (!point || !name || !doc.address_name) return [];
+    const building = doc.road_address?.building_name;
+    return [
+      {
+        id: `address:${point.lat},${point.lng}`,
+        name: building ? `${name} (${building})` : name,
+        address: doc.address_name,
+        ...point,
+      },
+    ];
+  });
+}
+
 export async function searchKakaoSubwayPlaces(key: string, query: string): Promise<KakaoPlace[]> {
   const params = new URLSearchParams({
     query,
