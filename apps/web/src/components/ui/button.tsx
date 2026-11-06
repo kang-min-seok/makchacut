@@ -30,6 +30,8 @@ const buttonVariants = cva(
         'icon-sm':
           'size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg',
         'icon-lg': 'size-9',
+        xl: "h-12 gap-2 rounded-xl px-4 text-base font-bold [&_svg:not([class*='size-'])]:size-5",
+        'icon-xl': "size-10 rounded-full [&_svg:not([class*='size-'])]:size-5",
       },
     },
     defaultVariants: {

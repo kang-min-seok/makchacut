@@ -80,7 +80,8 @@ export function createPlanner({ db, graphs }: PlannerDeps): Planner {
     const holidays = (await isHoliday(db, request.date))
       ? new Set([request.date])
       : new Set<string>();
-    const loaded = await graphs.get(dayTypeOf(request.date, holidays));
+    const dayType = dayTypeOf(request.date, holidays);
+    const loaded = await graphs.get(dayType);
     if (!loaded) return { kind: 'no_graph' };
 
     const walkTimeFactor = WALK_TIME_FACTORS[options.walkSpeed];
@@ -103,6 +104,6 @@ export function createPlanner({ db, graphs }: PlannerDeps): Planner {
       },
     });
     if (!plan) return { kind: 'no_route' };
-    return { kind: 'planned', response: formatPlan(loaded.graph, request.date, plan) };
+    return { kind: 'planned', response: formatPlan(loaded.graph, request, dayType, plan) };
   };
 }

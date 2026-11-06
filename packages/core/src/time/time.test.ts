@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayTypeOf } from '#time/day-type';
-import { todayInKorea } from '#time/korea-date';
+import { addDays, serviceDateInKorea, todayInKorea } from '#time/korea-date';
 import { formatClock, minutesToClock, toServiceMinutes } from '#time/service-day';
 
 describe('toServiceMinutes', () => {
@@ -45,6 +45,22 @@ describe('todayInKorea', () => {
   it('uses the Korean date even when UTC is still the previous day', () => {
     expect(todayInKorea(new Date('2026-11-01T15:30:00Z'))).toBe('2026-11-02');
     expect(todayInKorea(new Date('2026-11-01T14:59:00Z'))).toBe('2026-11-01');
+  });
+});
+
+describe('serviceDateInKorea', () => {
+  it('treats the hours before 4 a.m. as the previous service day', () => {
+    // 2026-11-07 00:30 KST
+    expect(serviceDateInKorea(new Date('2026-11-06T15:30:00Z'))).toBe('2026-11-06');
+    // 2026-11-07 04:00 KST
+    expect(serviceDateInKorea(new Date('2026-11-06T19:00:00Z'))).toBe('2026-11-07');
+  });
+});
+
+describe('addDays', () => {
+  it('crosses month and year ends', () => {
+    expect(addDays('2026-11-30', 1)).toBe('2026-12-01');
+    expect(addDays('2026-12-31', 6)).toBe('2027-01-06');
   });
 });
 

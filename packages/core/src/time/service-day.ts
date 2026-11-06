@@ -1,6 +1,6 @@
 // 시각을 "서비스 일자 기준 분"으로 바꾼다. 새벽 4시 전은 전날 운행으로 보고 24시간을 더한다(00:40 → 1480).
 
-const SERVICE_DAY_CUTOFF_MINUTES = 4 * 60;
+export const SERVICE_DAY_CUTOFF_MINUTES = 4 * 60;
 const MINUTES_PER_DAY = 24 * 60;
 
 // "HH:MM", "HH:MM:SS", "HHMMSS" 를 받는다. 형식이 다르거나 빈 값이면 undefined.
