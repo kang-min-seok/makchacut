@@ -43,8 +43,8 @@ select cron.schedule('ingest-seoul-subway', '15,35,55 19-20 * * *', $$select pub
 -- 월요일 06:00 KST
 select cron.schedule('ingest-holiday', '0 21 * * 0', $$select public.call_ingest('holiday')$$);
 
--- 계산 (엔드포인트 POST /jobs/compute/:step) — 수집이 끝난 뒤 06:00~06:20 KST, 앞 단계 결과를 다음 단계가 쓰므로 순서대로 띄운다.
--- 역 좌표 → 정류장 통합 → 정류장별 막차 → 도보 간선. 각 단계는 200초 안에 끝나고 전체를 다시 계산하므로 다시 불러도 된다.
+-- 계산 (엔드포인트 POST /jobs/compute/:step) — 수집이 끝난 뒤 06:00~06:30 KST, 앞 단계 결과를 다음 단계가 쓰므로 순서대로 띄운다.
+-- 역 좌표 → 정류장 통합 → 정류장별 막차 → 도보 간선 → 그래프 스냅샷(요일 유형 4개, 엔진 /plan이 읽음). 각 단계는 200초 안에 끝나고 전체를 다시 계산하므로 다시 불러도 된다.
 create or replace function public.call_compute(step text)
 returns bigint
 language sql
@@ -70,6 +70,7 @@ select cron.schedule('compute-subway-coords', '0 21 * * *', $$select public.call
 select cron.schedule('compute-merge-stops', '5 21 * * *', $$select public.call_compute('merge-stops')$$);
 select cron.schedule('compute-stop-last', '10 21 * * *', $$select public.call_compute('stop-last')$$);
 select cron.schedule('compute-footpath', '20 21 * * *', $$select public.call_compute('footpath')$$);
+select cron.schedule('compute-graph-snapshot', '30 21 * * *', $$select public.call_compute('graph-snapshot')$$);
 
 -- 확인
 --   select jobname, schedule, active from cron.job order by jobname;
