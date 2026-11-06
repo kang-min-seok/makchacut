@@ -8,7 +8,11 @@ import {
   type TransitGraph,
 } from '#graph/transit-graph';
 import type { Confidence } from '#stop-last/confidence';
-import { alightLimitOf, type ReverseRaptorResult } from '#raptor/reverse-raptor';
+import {
+  alightLimitOf,
+  type ReverseRaptorResult,
+  transferSlackOf,
+} from '#raptor/reverse-raptor';
 
 export type RideLeg = {
   kind: 'ride';
@@ -44,22 +48,32 @@ export type Journey = {
   targetStop: number;
 };
 
-type LabelKind = 'ride' | 'walk';
-type Label = { round: number; kind: LabelKind; value: number };
+export type LabelKind = 'ride' | 'walk';
+export type Label = { round: number; kind: LabelKind; value: number };
 
 // 배차 기반 구간은 도착을 더하기·빼기로 다시 구해 부동소수 오차가 생길 수 있다
 const TIME_EPSILON = 1e-6;
 
+// 이 정류장의 라운드(탄 횟수)별 값. 라운드는 앞 라운드보다 나아진 값만 남기므로 탄 횟수와 마감의 파레토 집합이다.
+export function labelsAt(result: ReverseRaptorResult, stop: number): Label[] {
+  const labels: Label[] = [];
+  result.rounds.forEach((round, roundNumber) => {
+    const ride = round.ride[stop]!;
+    const walk = round.walk[stop]!;
+    if (ride === -Infinity && walk === -Infinity) return;
+    // 같은 라운드면 ride(그 자리에서 타기)가 구간이 적다
+    const kind: LabelKind = ride >= walk ? 'ride' : 'walk';
+    labels.push({ round: roundNumber, kind, value: Math.max(ride, walk) });
+  });
+  return labels;
+}
+
 // 이 정류장의 가장 늦은 값. 같으면 덜 타는 쪽.
 export function bestLabelAt(result: ReverseRaptorResult, stop: number): Label | undefined {
   let best: Label | undefined;
-  result.rounds.forEach((round, roundNumber) => {
-    for (const kind of ['ride', 'walk'] as const) {
-      const value = round[kind][stop]!;
-      if (value === -Infinity) continue;
-      if (!best || value > best.value) best = { round: roundNumber, kind, value };
-    }
-  });
+  for (const label of labelsAt(result, stop)) {
+    if (!best || label.value > best.value) best = label;
+  }
   return best;
 }
 
@@ -72,10 +86,10 @@ function continuationAfterAlight(
 ): Label | undefined {
   for (let roundNumber = 0; roundNumber < beforeRound; roundNumber += 1) {
     const round = result.rounds[roundNumber]!;
-    const limit = alightLimitOf(round, roundNumber, stop, result.minTransferMinutes);
+    const limit = alightLimitOf(round, roundNumber, stop, result);
     if (arrival > limit + TIME_EPSILON) continue;
     // 바로 갈아타는 쪽이 걷는 쪽보다 구간이 적다
-    const slack = roundNumber === 0 ? 0 : result.minTransferMinutes;
+    const slack = transferSlackOf(roundNumber, result);
     const rideFits = arrival <= round.ride[stop]! - slack + TIME_EPSILON;
     return { round: roundNumber, kind: rideFits ? 'ride' : 'walk', value: limit };
   }
@@ -112,13 +126,14 @@ function rideLeg(
   };
 }
 
-// 출발 정류장의 가장 늦은 값에서 목적지까지 구간을 따라간다
+// 출발 정류장의 값(기본: 가장 늦은 값)에서 목적지까지 구간을 따라간다
 export function reconstructJourney(
   graph: TransitGraph,
   result: ReverseRaptorResult,
   startStop: number,
+  startLabel: Label | undefined = bestLabelAt(result, startStop),
 ): Journey | undefined {
-  const start = bestLabelAt(result, startStop);
+  const start = startLabel;
   if (!start) return undefined;
 
   const legs: JourneyLeg[] = [];
