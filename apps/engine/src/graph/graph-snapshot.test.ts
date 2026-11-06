@@ -1,3 +1,4 @@
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { buildTransitGraph } from '@makchacut/core';
 import { decodeGraphSnapshot, encodeGraphSnapshot } from '#graph/graph-snapshot';
@@ -35,5 +36,11 @@ describe('graph snapshot', () => {
 
   it('rejects other data', () => {
     expect(() => decodeGraphSnapshot(new Uint8Array([1, 2, 3]))).toThrow();
+  });
+
+  it('rejects a truncated snapshot', () => {
+    const raw = gunzipSync(encodeGraphSnapshot(graph));
+    const truncated = gzipSync(raw.subarray(0, raw.length - 1));
+    expect(() => decodeGraphSnapshot(truncated)).toThrow('잘렸습니다');
   });
 });

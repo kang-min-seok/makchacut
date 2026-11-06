@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { performance } from 'node:perf_hooks';
 import {
@@ -36,7 +37,7 @@ const { values, positionals: meetups } = parseArgs({
   options: { home: { type: 'string' }, scope: { type: 'string', default: 'all' } },
   allowPositionals: true,
 });
-process.loadEnvFile(ENV_FILE);
+if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 const databaseUrl = process.env.DATABASE_URL;
 const kakaoKey = process.env.KAKAO_REST_API_KEY;
 const scope = GRAPH_SCOPES.find((s) => s === values.scope);

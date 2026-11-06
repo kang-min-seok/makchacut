@@ -58,6 +58,15 @@ function typeNameOf(array: GraphTypedArray): TypedArrayName {
 
 const align = (offset: number) => Math.ceil(offset / ALIGNMENT) * ALIGNMENT;
 
+function isKnownEntry(entry: ArrayEntry): boolean {
+  return (
+    Object.hasOwn(TYPED_ARRAYS, entry.type) &&
+    ARRAY_KEYS.includes(entry.key) &&
+    Number.isInteger(entry.length) &&
+    entry.length >= 0
+  );
+}
+
 export function encodeGraphSnapshot(graph: TransitGraph): Buffer {
   const header: SnapshotHeader = {
     strings: Object.fromEntries(STRING_KEYS.map((key) => [key, graph[key]])) as Record<
@@ -98,9 +107,15 @@ export function decodeGraphSnapshot(snapshot: Uint8Array): TransitGraph {
   const arrays: Partial<Record<ArrayKey, GraphTypedArray>> = {};
   let offset = headerStart + headerLength;
   for (const entry of header.arrays) {
+    if (!isKnownEntry(entry)) {
+      throw new Error(`그래프 스냅샷 머리말의 배열 항목이 잘못됐습니다: ${JSON.stringify(entry)}`);
+    }
     const Ctor = TYPED_ARRAYS[entry.type];
     const start = align(offset);
     const byteLength = entry.length * Ctor.BYTES_PER_ELEMENT;
+    if (start + byteLength > raw.length) {
+      throw new Error(`그래프 스냅샷이 잘렸습니다: ${entry.key}`);
+    }
     // 정렬을 보장하려고 복사한다
     const bytes = raw.buffer.slice(raw.byteOffset + start, raw.byteOffset + start + byteLength);
     arrays[entry.key] = new Ctor(bytes);
