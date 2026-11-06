@@ -1,6 +1,8 @@
 import { dayTypeOf, todayInKorea } from '@makchacut/core';
 import type { Db } from '@makchacut/db';
 import { ApiBudget, QuotaExhaustedError } from '#jobs/api-budget';
+import { CallPacer } from '#jobs/call-pacer';
+import { keepLatestFailure } from '#jobs/failure-samples';
 import {
   finishRun,
   hasActiveRun,
@@ -23,7 +25,6 @@ import { TargetDataError } from '#jobs/target-data-error';
 import { isUpstreamStopMessage, UpstreamGuard, upstreamStopMessage } from '#jobs/upstream-guard';
 
 const TARGET_BATCH_SIZE = 50;
-const MAX_FAILURE_SAMPLES = 5;
 
 export type IngestStopReason = 'done' | 'quota' | 'time' | 'busy' | 'upstream';
 
@@ -98,6 +99,9 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
   const budget = new ApiBudget(
     Math.min(quotaLeft, options.maxCalls ?? quotaLeft),
     () => guard.allowsRetry,
+    ingester.minCallIntervalMs === undefined
+      ? undefined
+      : new CallPacer(ingester.minCallIntervalMs),
   );
   const ctx = await createContext(options, budget);
   const runId = await startRun(db, ingester.source);
@@ -105,9 +109,7 @@ export async function runIngest(options: RunIngestOptions): Promise<IngestSummar
     if (error instanceof TargetDataError) guard.recordDataError();
     else guard.recordFailure();
     summary.failed += 1;
-    if (summary.failures.length < MAX_FAILURE_SAMPLES) {
-      summary.failures.push(`${label}: ${String(error)}`);
-    }
+    summary.failures = keepLatestFailure(summary.failures, `${label}: ${String(error)}`);
   };
 
   try {

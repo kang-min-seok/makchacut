@@ -8,6 +8,8 @@ import { TargetDataError } from '#jobs/target-data-error';
 const DAILY_QUOTA = 1000;
 const LIST_REFRESH_HOURS = 20;
 const TARGET_REFRESH_HOURS = 24;
+// 약 300건을 25초 안에 부르면 그 뒤 몇 시간 동안 "<br>" HTML만 돌려준다(2026-11-04·05 새벽)
+const MIN_CALL_INTERVAL_MS = 1_000;
 
 // gbis 수집으로 정류장 목록까지 받은 노선이 대상이다 — 외부 호출 없음.
 // 아직 정류장이 없는 노선을 넣으면 매 실행 수천 건을 실패로 훑게 된다.
@@ -40,6 +42,7 @@ export const gbisWebIngester: SourceIngester = {
   dailyQuota: DAILY_QUOTA,
   listRefreshHours: LIST_REFRESH_HOURS,
   targetRefreshHours: TARGET_REFRESH_HOURS,
+  minCallIntervalMs: MIN_CALL_INTERVAL_MS,
   listTargets,
   ingestTarget,
 };
