@@ -12,7 +12,8 @@
     "start": "node dist/node-server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "graph:check": "node --expose-gc --import tsx scripts/graph-check.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",

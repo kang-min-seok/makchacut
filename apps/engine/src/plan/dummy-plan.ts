@@ -15,6 +15,8 @@ export function createDummyPlan(request: PlanRequest): PlanResponse {
       stopName: '판교역',
       time: at(date, '22:50'),
       timeKind: 'scheduled',
+      source: 'gbis_eta',
+      confidence: 'high',
     },
     ways: [
       {

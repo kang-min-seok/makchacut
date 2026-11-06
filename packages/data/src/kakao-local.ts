@@ -1,7 +1,8 @@
 import { httpError } from '#http-error';
-// 카카오 로컬 키워드 검색으로 지하철역 좌표를 찾는다. 서울교통공사 역 목록 API에는 좌표가 없다. 키는 KAKAO_REST_API_KEY.
+// 카카오 로컬 검색: 지하철역 좌표(서울교통공사 역 목록 API에는 좌표가 없다), 주소 좌표. 키는 KAKAO_REST_API_KEY.
 
 const KAKAO_KEYWORD_URL = 'https://dapi.kakao.com/v2/local/search/keyword.json';
+const KAKAO_ADDRESS_URL = 'https://dapi.kakao.com/v2/local/search/address.json';
 const REQUEST_TIMEOUT_MS = 10_000;
 // 지하철역 카테고리
 const SUBWAY_CATEGORY = 'SW8';
@@ -35,6 +36,27 @@ export async function searchKakaoSubwayPlaces(key: string, query: string): Promi
       ? [{ placeName: doc.place_name, lat, lng }]
       : [];
   });
+}
+
+// 주소 → 좌표. 맞는 주소가 없으면 undefined.
+export async function searchKakaoAddress(
+  key: string,
+  address: string,
+): Promise<KakaoPlace | undefined> {
+  const params = new URLSearchParams({ query: address, size: '1' });
+  const res = await fetch(`${KAKAO_ADDRESS_URL}?${params.toString()}`, {
+    headers: { Authorization: `KakaoAK ${key}` },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!res.ok) throw await httpError('카카오 주소 검색', res, [key]);
+  const json = (await res.json()) as {
+    documents?: { address_name?: string; x?: string; y?: string }[];
+  };
+  const doc = json.documents?.[0];
+  const lat = Number(doc?.y);
+  const lng = Number(doc?.x);
+  if (!doc?.address_name || !Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  return { placeName: doc.address_name, lat, lng };
 }
 
 // "서울역"처럼 이미 역으로 끝나는 이름은 그대로

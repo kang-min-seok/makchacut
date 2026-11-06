@@ -4,6 +4,7 @@ import { todayInKorea } from '@makchacut/core';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePlanRequest } from '@/hooks/use-plan-request';
+import { ANCHOR_CONFIDENCE_LABELS, ANCHOR_SOURCE_LABELS } from '@/lib/anchor-labels';
 import { formatKoreaClock } from '@/lib/korea-time';
 import { createSamplePlanRequest } from '@/lib/sample-plan-request';
 
@@ -40,6 +41,11 @@ export function EngineCheck() {
                 <dd>
                   {state.plan.anchor.stopName} {state.plan.anchor.routeName} 막차{' '}
                   {formatKoreaClock(state.plan.anchor.time)}
+                </dd>
+                <dt className="text-muted-foreground">막차 시각 출처</dt>
+                <dd>
+                  {ANCHOR_SOURCE_LABELS[state.plan.anchor.source]} ·{' '}
+                  {ANCHOR_CONFIDENCE_LABELS[state.plan.anchor.confidence]}
                 </dd>
               </>
             )}
