@@ -13,7 +13,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "graph:check": "node --expose-gc --import tsx scripts/graph-check.ts"
+    "graph:check": "node --expose-gc --import tsx scripts/graph-check.ts",
+    "plan:check": "node --import tsx scripts/plan-check.ts",
+    "plan:golden": "node --import tsx scripts/plan-golden.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",

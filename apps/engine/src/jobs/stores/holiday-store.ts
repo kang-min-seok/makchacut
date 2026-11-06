@@ -1,4 +1,4 @@
-import { and, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, lte } from 'drizzle-orm';
 import type { Holiday } from '@makchacut/data';
 import { type DbExecutor, holiday } from '@makchacut/db';
 
@@ -18,4 +18,13 @@ export async function replaceYearHolidays(
 export async function loadHolidayDates(db: DbExecutor): Promise<Set<string>> {
   const rows = await db.select({ date: holiday.date }).from(holiday);
   return new Set(rows.map((row) => row.date));
+}
+
+export async function isHoliday(db: DbExecutor, isoDate: string): Promise<boolean> {
+  const rows = await db
+    .select({ date: holiday.date })
+    .from(holiday)
+    .where(eq(holiday.date, isoDate))
+    .limit(1);
+  return rows.length > 0;
 }

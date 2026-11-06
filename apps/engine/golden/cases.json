@@ -1,0 +1,201 @@
+{
+  "cases": [
+    {
+      "id": "gangnam-dongtan-weekday",
+      "home": "dongtan",
+      "meetup": "강남",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {
+        "anchorRoutes": [
+          "8501"
+        ],
+        "anchorStop": "강남",
+        "anchorTime": "00:52"
+      },
+      "note": "M0 확정값 (DB는 11-06 기준 00:47)"
+    },
+    {
+      "id": "gangnam-dongtan-sat",
+      "home": "dongtan",
+      "meetup": "강남",
+      "date": "2026-11-07",
+      "toleranceMinutes": 5,
+      "expect": {
+        "anchorRoutes": [
+          "1551B",
+          "M4403"
+        ],
+        "anchorTime": "00:00"
+      },
+      "note": "M0 확정값"
+    },
+    {
+      "id": "gangnam-dongtan-sun",
+      "home": "dongtan",
+      "meetup": "강남",
+      "date": "2026-11-08",
+      "toleranceMinutes": 5,
+      "expect": {
+        "anchorRoutes": [
+          "1551B",
+          "M4403"
+        ],
+        "anchorTime": "00:00"
+      },
+      "note": "M0 확정값"
+    },
+    {
+      "id": "moran-dongtan-sat",
+      "home": "dongtan",
+      "meetup": "모란",
+      "date": "2026-11-07",
+      "toleranceMinutes": 5,
+      "expect": {
+        "anchorRoutes": [
+          "6003"
+        ],
+        "anchorStop": "판교",
+        "anchorTime": "23:55"
+      },
+      "note": "M0 확정값 6003 판교 23:55"
+    },
+    {
+      "id": "myeongdong-dongtan-weekday",
+      "home": "dongtan",
+      "meetup": "명동",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {
+        "anchorRoutes": [
+          "4108"
+        ],
+        "anchorStop": "명동입구",
+        "anchorTime": "23:52"
+      },
+      "note": "M0 확정값 4108 명동입구B 23:52"
+    },
+    {
+      "id": "hongdae-dongtan-weekday",
+      "home": "dongtan",
+      "meetup": "홍대입구",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {
+        "anchorRoutes": [
+          "4108"
+        ],
+        "anchorStop": "명동입구"
+      },
+      "note": "M1-2 완료 기준 (핵심 연결 = 명동입구 4108)"
+    },
+    {
+      "id": "moran-dongtan-weekday",
+      "home": "dongtan",
+      "meetup": "모란",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "sadang-dongtan-weekday",
+      "home": "dongtan",
+      "meetup": "사당",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "jamsil-dongtan-weekday",
+      "home": "dongtan",
+      "meetup": "잠실",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "kondae-dongtan-weekday",
+      "home": "dongtan",
+      "meetup": "건대입구",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "sadang-dongtan-sat",
+      "home": "dongtan",
+      "meetup": "사당",
+      "date": "2026-11-07",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "jamsil-dongtan-sat",
+      "home": "dongtan",
+      "meetup": "잠실",
+      "date": "2026-11-07",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "kondae-dongtan-sat",
+      "home": "dongtan",
+      "meetup": "건대입구",
+      "date": "2026-11-07",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "hongdae-dongtan-sat",
+      "home": "dongtan",
+      "meetup": "홍대입구",
+      "date": "2026-11-07",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "기대값 미작성"
+    },
+    {
+      "id": "sadang-sinheung-weekday",
+      "home": "sinheung",
+      "meetup": "사당",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "지하철만 · 기대값 미작성"
+    },
+    {
+      "id": "jamsil-sinheung-weekday",
+      "home": "sinheung",
+      "meetup": "잠실",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "지하철만 · 기대값 미작성"
+    },
+    {
+      "id": "hongdae-sinheung-weekday",
+      "home": "sinheung",
+      "meetup": "홍대입구",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "지하철만 · 기대값 미작성"
+    },
+    {
+      "id": "kondae-sinheung-weekday",
+      "home": "sinheung",
+      "meetup": "건대입구",
+      "date": "2026-11-10",
+      "toleranceMinutes": 5,
+      "expect": {},
+      "note": "지하철만 · 기대값 미작성"
+    }
+  ]
+}
