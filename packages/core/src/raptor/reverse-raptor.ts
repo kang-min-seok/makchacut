@@ -124,8 +124,9 @@ function finishAfterAlight(state: SearchState, stop: number, at: number): number
   return Number.isNaN(offset) ? state.finishFixed[stop]! : at + offset;
 }
 
-function withinTravel(state: SearchState, stop: number, value: number, finish: number): boolean {
-  return state.maxTravel === undefined || finish - value <= state.maxTravel[stop]!;
+// 소요(분)는 호출하는 쪽이 구한다 — 목적지 라운드는 값이 Infinity라 finish − value가 NaN이 되기 때문
+function withinTravel(state: SearchState, stop: number, travelMinutes: number): boolean {
+  return state.maxTravel === undefined || travelMinutes <= state.maxTravel[stop]!;
 }
 
 type RideChoice = {
@@ -145,7 +146,7 @@ function recordRide(
   choice: RideChoice,
   improved: Set<number>,
 ): void {
-  if (value <= state.bestRide[stop]! || !withinTravel(state, stop, value, finish)) return;
+  if (value <= state.bestRide[stop]! || !withinTravel(state, stop, finish - value)) return;
   state.bestRide[stop] = value;
   round.ride[stop] = value;
   round.rideFinish[stop] = finish;
@@ -278,8 +279,9 @@ function relaxFootpaths(
       if (candidate <= bestWalk[from]!) continue;
       // 라운드 0은 목적지까지 걸어 가므로 소요가 도보 + 목적지 오프셋으로 정해진다
       const offset = walkMinutes + state.targetRideOffset[to]!;
-      const finish = roundNumber === 0 ? candidate + offset : round.rideFinish[to]!;
-      if (!withinTravel(state, from, candidate, finish)) continue;
+      const finish = round.rideFinish[to]!;
+      const travel = roundNumber === 0 ? offset : finish - candidate;
+      if (!withinTravel(state, from, travel)) continue;
       bestWalk[from] = candidate;
       round.walk[from] = candidate;
       round.walkFootpath[from] = footpath;

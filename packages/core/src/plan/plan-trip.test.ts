@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildTransitGraph, type GraphTripInput } from '#graph/build-graph';
+import {
+  buildTransitGraph,
+  type GraphFootpathInput,
+  type GraphTripInput,
+} from '#graph/build-graph';
 import { indexGraph } from '#graph/graph-index';
 import type { TransitMode } from '#graph/transit-graph';
 import type { AccessStop } from '#plan/access';
@@ -17,7 +21,9 @@ const M2 = 2;
 const P = 3;
 const HOME = 4;
 const F = 5;
-const STOPS = [M, M2, P, HOME, F].map((id) => ({ id, name: `S${id}`, lat: null, lng: null }));
+// 집 근처 정류장 (집 진입점은 아니고 걸어서 집 정류장으로)
+const H2 = 6;
+const STOPS = [M, M2, P, HOME, F, H2].map((id) => ({ id, name: `S${id}`, lat: null, lng: null }));
 
 function m(clock: string): number {
   const minutes = toServiceMinutes(clock);
@@ -61,8 +67,12 @@ const OPTIONS: TripPlanOptions = {
   safetyMarginMinutes: 5,
 };
 
-function plan(detour: DetourLevel, trips: GraphTripInput[] = TRIPS) {
-  const { graph } = buildTransitGraph({ stops: STOPS, trips, footpaths: [] });
+function plan(
+  detour: DetourLevel,
+  trips: GraphTripInput[] = TRIPS,
+  footpaths: GraphFootpathInput[] = [],
+) {
+  const { graph } = buildTransitGraph({ stops: STOPS, trips, footpaths });
   const index = indexGraph(graph);
   const at = (id: number) => index.stopIndexById.get(id)!;
   const homeAccess: AccessStop[] = [{ stop: at(HOME), walkMinutes: 0 }];
@@ -96,6 +106,16 @@ describe('planTrip', () => {
     expect(result.detour?.deadline).toBeCloseTo(m('23:43'));
     expect(result.detour?.extraMinutes).toBe(59);
     expect(result.detourFallback).toBe(false);
+  });
+
+  it('keeps routes that end with a walk to the home stop in the limited search', () => {
+    const trips = TRIPS.map((t) =>
+      t.routeId === 20 ? trip(20, [P, H2], '23:55', 40, 'bus', 20) : t,
+    );
+    const walk = { fromStopId: H2, toStopId: HOME, walkSeconds: 180 };
+    const { result } = plan('optimal', trips, [walk, { ...walk, fromStopId: HOME, toStopId: H2 }]);
+    expect(result.detourFallback).toBe(false);
+    expect(result.deadline).toBeCloseTo(m('23:17'));
   });
 
   it('allows the detour when the setting is loose enough', () => {

@@ -59,7 +59,10 @@ function judge(c: GoldenCase, response: PlanResponse): { verdict: Verdict; misse
   const { expect, toleranceMinutes } = c;
   const misses: string[] = [];
   const { anchor } = response;
-  if (expect.deadline && !closeEnough(clockOf(response.deadline), expect.deadline, toleranceMinutes)) {
+  if (
+    expect.deadline &&
+    !closeEnough(clockOf(response.deadline), expect.deadline, toleranceMinutes)
+  ) {
     misses.push(`마감 ${clockOf(response.deadline)} ≠ ${expect.deadline}`);
   }
   if (expect.anchorRoutes && !expect.anchorRoutes.some((r) => anchor?.routeName.includes(r))) {
@@ -127,7 +130,9 @@ try {
     }
     const { verdict, misses } = judge(c, result.response);
     counts[verdict] += 1;
-    console.log(`\n[${verdict}] ${c.id} — ${c.meetup} → ${c.home} ${c.date}${c.note ? ` (${c.note})` : ''}`);
+    console.log(
+      `\n[${verdict}] ${c.id} — ${c.meetup} → ${c.home} ${c.date}${c.note ? ` (${c.note})` : ''}`,
+    );
     for (const miss of misses) console.log(`  ✗ ${miss}`);
     for (const line of planLines(result.response)) console.log(line);
   }

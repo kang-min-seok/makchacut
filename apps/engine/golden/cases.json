@@ -7,9 +7,7 @@
       "date": "2026-11-10",
       "toleranceMinutes": 5,
       "expect": {
-        "anchorRoutes": [
-          "8501"
-        ],
+        "anchorRoutes": ["8501"],
         "anchorStop": "강남",
         "anchorTime": "00:52"
       },
@@ -22,10 +20,7 @@
       "date": "2026-11-07",
       "toleranceMinutes": 5,
       "expect": {
-        "anchorRoutes": [
-          "1551B",
-          "M4403"
-        ],
+        "anchorRoutes": ["1551B", "M4403"],
         "anchorTime": "00:00"
       },
       "note": "M0 확정값"
@@ -37,10 +32,7 @@
       "date": "2026-11-08",
       "toleranceMinutes": 5,
       "expect": {
-        "anchorRoutes": [
-          "1551B",
-          "M4403"
-        ],
+        "anchorRoutes": ["1551B", "M4403"],
         "anchorTime": "00:00"
       },
       "note": "M0 확정값"
@@ -52,9 +44,7 @@
       "date": "2026-11-07",
       "toleranceMinutes": 5,
       "expect": {
-        "anchorRoutes": [
-          "6003"
-        ],
+        "anchorRoutes": ["6003"],
         "anchorStop": "판교",
         "anchorTime": "23:55"
       },
@@ -67,9 +57,7 @@
       "date": "2026-11-10",
       "toleranceMinutes": 5,
       "expect": {
-        "anchorRoutes": [
-          "4108"
-        ],
+        "anchorRoutes": ["4108"],
         "anchorStop": "명동입구",
         "anchorTime": "23:52"
       },
@@ -82,9 +70,7 @@
       "date": "2026-11-10",
       "toleranceMinutes": 5,
       "expect": {
-        "anchorRoutes": [
-          "4108"
-        ],
+        "anchorRoutes": ["4108"],
         "anchorStop": "명동입구"
       },
       "note": "M1-2 완료 기준 (핵심 연결 = 명동입구 4108)"

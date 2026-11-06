@@ -14,7 +14,9 @@ export function planLines(response: PlanResponse): string[] {
     lines.push('  핵심 연결: 없음');
   }
   if (detour) {
-    lines.push(`  돌아가는 막차: 마감 ${clockOf(detour.deadline)} (+${detour.extraMinutes}분 더 걸림)`);
+    lines.push(
+      `  돌아가는 막차: 마감 ${clockOf(detour.deadline)} (+${detour.extraMinutes}분 더 걸림)`,
+    );
   }
   response.ways.forEach((way, i) => {
     lines.push(`  방법 ${i + 1}: ${clockOf(way.latestDeparture)} 출발`);
