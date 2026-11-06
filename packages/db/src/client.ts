@@ -2,8 +2,19 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '#schema';
 
-export function createDb(databaseUrl: string) {
-  const client = postgres(databaseUrl, { prepare: false });
+export type DbOptions = {
+  // 연결 수 상한 (기본: postgres.js 기본값)
+  maxConnections?: number;
+  // 쉬는 연결을 닫는 초 (오래 사는 함수 인스턴스용)
+  idleTimeoutSeconds?: number;
+};
+
+export function createDb(databaseUrl: string, options: DbOptions = {}) {
+  const client = postgres(databaseUrl, {
+    prepare: false,
+    max: options.maxConnections,
+    idle_timeout: options.idleTimeoutSeconds,
+  });
   return drizzle(client, { schema });
 }
 

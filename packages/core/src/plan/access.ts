@@ -43,13 +43,25 @@ export function accessStops(
     .filter((s) => s.walkMinutes <= options.maxWalkMinutes);
 }
 
+// 집에 이 시각까지 도착하려면 진입점마다 늦어도 언제 내려야 하는가 (기본: 제한 없음)
+export function arrivalTargets(
+  access: readonly AccessStop[],
+  arriveBy: number = Infinity,
+): RaptorTarget[] {
+  return access.map((s) => ({
+    stop: s.stop,
+    latestArrival: arriveBy - s.walkMinutes,
+    finishMinutes: s.walkMinutes,
+  }));
+}
+
 // 집에 늦게 도착해도 되므로 진입점은 도착 제한이 없다(도보 시간은 반경·최대 도보로만 거른다)
 export function homeTargets(
   graph: TransitGraph,
   home: LatLng,
   options: AccessOptions,
 ): RaptorTarget[] {
-  return accessStops(graph, home, options).map((s) => ({ stop: s.stop, latestArrival: Infinity }));
+  return arrivalTargets(accessStops(graph, home, options));
 }
 
 export type MeetupDeparture = {

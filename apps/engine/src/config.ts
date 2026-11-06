@@ -21,6 +21,11 @@ const IngestEnvSchema = z.object({
   KAKAO_REST_API_KEY: z.string().min(1).optional(),
 });
 
+// /plan이 그래프 스냅샷을 읽는 DB. 없으면 /plan이 503을 준다(Vercel Preview).
+const PlanEnvSchema = z.object({
+  DATABASE_URL: z.string().regex(POSTGRES_URL_PATTERN).optional(),
+});
+
 export type EngineConfig = {
   port: number;
   apiKey: string;
@@ -49,4 +54,8 @@ export function loadIngestConfig(env: NodeJS.ProcessEnv = process.env): IngestCo
     cronSecret: parsed.INGEST_CRON_SECRET,
     kakaoRestApiKey: parsed.KAKAO_REST_API_KEY,
   };
+}
+
+export function loadPlanDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return PlanEnvSchema.parse(env).DATABASE_URL;
 }

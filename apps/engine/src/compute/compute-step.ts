@@ -1,6 +1,12 @@
 import type { Db } from '@makchacut/db';
 
-export const COMPUTE_STEPS = ['subway-coords', 'merge-stops', 'stop-last', 'footpath'] as const;
+export const COMPUTE_STEPS = [
+  'subway-coords',
+  'merge-stops',
+  'stop-last',
+  'footpath',
+  'graph-snapshot',
+] as const;
 export type ComputeStep = (typeof COMPUTE_STEPS)[number];
 
 export type ComputeKeys = {

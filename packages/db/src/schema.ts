@@ -1,6 +1,7 @@
 import { CONFIDENCE_LEVELS, DAY_TYPES, LAST_TIME_SOURCES } from '@makchacut/core';
 import {
   boolean,
+  customType,
   date,
   doublePrecision,
   foreignKey,
@@ -19,6 +20,10 @@ import {
 
 // 모든 테이블은 RLS를 켜고 정책을 두지 않는다 — Data API로는 접근할 수 없고, 엔진은 테이블 소유자로 pooler에 붙는다.
 // 시각 컬럼(*_minutes, *_at_origin 등)은 서비스 일자 기준 분이다(00:40 → 1480, 24:46:30 → 1486.5).
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => 'bytea',
+});
 
 export const ingestStatus = pgEnum('ingest_status', ['running', 'succeeded', 'failed']);
 export const dayType = pgEnum('day_type', DAY_TYPES);
@@ -254,3 +259,14 @@ export const footpath = pgTable(
   },
   (t) => [primaryKey({ columns: [t.fromStopId, t.toStopId] })],
 ).enableRLS();
+
+// 요일 유형별 탐색 그래프 스냅샷 (gzip "MKG1" 바이너리). 계산 단계가 만들고 엔진 /plan이 읽어 메모리에 둔다.
+export const graphSnapshot = pgTable('graph_snapshot', {
+  dayType: dayType('day_type').primaryKey(),
+  data: bytea('data').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  stopCount: integer('stop_count').notNull(),
+  patternCount: integer('pattern_count').notNull(),
+  tripCount: integer('trip_count').notNull(),
+  builtAt: timestamp('built_at', { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
