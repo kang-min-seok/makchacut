@@ -14,10 +14,11 @@ const { graph } = buildTransitGraph({
       routeName: '2호선',
       mode: 'subway',
       label: '2001 성수행',
+      headwayMinutes: null,
       stopTimes: [
-        { stopId: 10, arrival: null, departure: 1450.5 },
-        { stopId: 11, arrival: 1454, departure: 1454.5 },
-        { stopId: 12, arrival: 1457, departure: null },
+        { stopId: 10, arrival: null, departure: 1450.5, source: 'timetable', confidence: 'high' },
+        { stopId: 11, arrival: 1454, departure: 1454.5, source: 'timetable', confidence: 'high' },
+        { stopId: 12, arrival: 1457, departure: null, source: 'timetable', confidence: 'high' },
       ],
     },
   ],
@@ -29,6 +30,7 @@ describe('graph snapshot', () => {
     const decoded = decodeGraphSnapshot(encodeGraphSnapshot(graph));
     expect(decoded).toEqual(graph);
     expect(decoded.departures).toBeInstanceOf(Float32Array);
+    expect(Number.isNaN(decoded.patternHeadwayMinutes[0])).toBe(true);
   });
 
   it('rejects other data', () => {

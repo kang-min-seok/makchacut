@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "graph:subway-check": "tsx scripts/subway-graph-check.ts"
+    "graph:check": "node --expose-gc --import tsx scripts/graph-check.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",

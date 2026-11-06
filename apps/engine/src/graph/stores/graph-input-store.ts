@@ -14,7 +14,9 @@ export async function loadGraphInput(
   dayType: DayType,
   scope: GraphScope = 'all',
 ): Promise<GraphBuildInput> {
-  const stopQuery = db.select({ id: stop.id, name: stop.name, lat: stop.lat, lng: stop.lng }).from(stop);
+  const stopQuery = db
+    .select({ id: stop.id, name: stop.name, lat: stop.lat, lng: stop.lng })
+    .from(stop);
   const stops = await (scope === 'subway' ? stopQuery.where(eq(stop.mode, 'subway')) : stopQuery);
   const subwayTrips = await loadSubwayTrips(db, dayType);
   const busTrips = scope === 'all' ? await loadBusTrips(db, dayType) : [];

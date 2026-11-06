@@ -1,4 +1,9 @@
-import type { Confidence, GraphStopTimeInput, GraphTripInput, LastTimeSource } from '@makchacut/core';
+import type {
+  Confidence,
+  GraphStopTimeInput,
+  GraphTripInput,
+  LastTimeSource,
+} from '@makchacut/core';
 
 export type BusStopLastRow = {
   routeId: number;
@@ -10,15 +15,26 @@ export type BusStopLastRow = {
   source: LastTimeSource;
   confidence: Confidence;
   headwayMinutes: number | null;
+  routeSource: 'seoul_bus' | 'gbis';
+  // 그 요일 유형의 bus_schedule 행이 있는지
+  hasDaySchedule: boolean;
 };
 
 const LAST_RUN_LABEL = '막차';
 
+// 추정 막차는 일찍 지나갈 수 있어 신뢰도가 낮을수록 그만큼 일찍 떠난다고 본다(분)
+export const CONFIDENCE_MARGIN_MINUTES: Readonly<Record<Confidence, number>> = {
+  high: 0,
+  medium: 5,
+  low: 10,
+};
+
 function toStopTime(row: BusStopLastRow): GraphStopTimeInput {
+  const minutes = row.lastMinutes - CONFIDENCE_MARGIN_MINUTES[row.confidence];
   return {
     stopId: row.stopId,
-    arrival: row.lastMinutes,
-    departure: row.lastMinutes,
+    arrival: minutes,
+    departure: minutes,
     source: row.source,
     confidence: row.confidence,
   };
