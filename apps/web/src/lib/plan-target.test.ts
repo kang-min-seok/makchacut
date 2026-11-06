@@ -28,6 +28,9 @@ describe('safeNextPath', () => {
     expect(safeNextPath('//evil.example')).toBe('/');
     expect(safeNextPath('https://evil.example')).toBe('/');
     expect(safeNextPath(null)).toBe('/');
+    expect(safeNextPath('/\\evil.example')).toBe('/');
+    expect(safeNextPath('/\t/evil.example')).toBe('/');
+    expect(safeNextPath(new URLSearchParams('next=/%5Cevil.example').get('next'))).toBe('/');
   });
 });
 
