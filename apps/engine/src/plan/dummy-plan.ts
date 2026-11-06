@@ -7,9 +7,10 @@ function at(date: string, time: string): string {
 }
 
 export function createDummyPlan(request: PlanRequest): PlanResponse {
-  const { date } = request;
+  const { date, home, meetup } = request;
   return {
     deadline: at(date, '22:17'),
+    dayType: 'weekday',
     anchor: {
       routeName: '6003',
       stopName: '판교역',
@@ -29,6 +30,8 @@ export function createDummyPlan(request: PlanRequest): PlanResponse {
             depart: at(date, '22:17'),
             arrive: at(date, '22:22'),
             timeKind: 'estimated',
+            path: [meetup],
+            isAnchor: false,
           },
           {
             type: 'bus',
@@ -38,6 +41,8 @@ export function createDummyPlan(request: PlanRequest): PlanResponse {
             depart: at(date, '22:22'),
             arrive: at(date, '22:43'),
             timeKind: 'estimated',
+            path: [],
+            isAnchor: false,
           },
           {
             type: 'bus',
@@ -47,6 +52,8 @@ export function createDummyPlan(request: PlanRequest): PlanResponse {
             depart: at(date, '22:50'),
             arrive: at(date, '23:35'),
             timeKind: 'scheduled',
+            path: [home],
+            isAnchor: true,
           },
         ],
       },

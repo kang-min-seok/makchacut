@@ -94,3 +94,27 @@ export function timeSourceAt(graph: TransitGraph, cell: number): TimeSource {
 export function confidenceAt(graph: TransitGraph, cell: number): Confidence {
   return CONFIDENCE_LEVELS[graph.timeConfidences[cell]!] ?? 'low';
 }
+
+// 패턴에서 fromStop 승차부터 toStop 하차까지 지나는 정류장. 같은 정류장이 두 번 나오면(순환선) 가장 짧은 구간.
+export function patternStopsBetween(
+  graph: TransitGraph,
+  pattern: number,
+  fromStop: number,
+  toStop: number,
+): number[] {
+  const length = patternLength(graph, pattern);
+  let best: [number, number] | undefined;
+  for (let start = 0; start < length; start++) {
+    if (patternStopAt(graph, pattern, start) !== fromStop) continue;
+    for (let end = start + 1; end < length; end++) {
+      if (patternStopAt(graph, pattern, end) !== toStop) continue;
+      if (!best || end - start < best[1] - best[0]) best = [start, end];
+      break;
+    }
+  }
+  if (!best) return [fromStop, toStop];
+  const [start, end] = best;
+  return Array.from({ length: end - start + 1 }, (_, i) =>
+    patternStopAt(graph, pattern, start + i),
+  );
+}

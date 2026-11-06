@@ -5,6 +5,7 @@ import {
   type GraphTripInput,
 } from '#graph/build-graph';
 import { indexGraph } from '#graph/graph-index';
+import { patternStopsBetween } from '#graph/transit-graph';
 import { reconstructJourney } from '#raptor/journey';
 import { reverseRaptor, type ReverseRaptorOptions } from '#raptor/reverse-raptor';
 import { toServiceMinutes } from '#time/service-day';
@@ -201,5 +202,42 @@ describe('buildTransitGraph', () => {
     expect(report.droppedStopTimes).toBe(1);
     // HOME은 어느 운행도 지나지 않아 그래프에 없다 → 도보 간선도 빠진다
     expect(report.graph.footpathFrom.length).toBe(0);
+  });
+});
+
+describe('patternStopsBetween', () => {
+  const loop = buildTransitGraph({
+    stops: STOPS,
+    trips: [
+      {
+        routeId: 1,
+        routeName: '순환',
+        mode: 'bus',
+        label: '',
+        headwayMinutes: null,
+        stopTimes: [A, B, C, A, D].map((stopId, i) => ({
+          stopId,
+          arrival: 1300 + i * 5,
+          departure: 1300 + i * 5,
+          source: 'seoul_api' as const,
+          confidence: 'high' as const,
+        })),
+      },
+    ],
+    footpaths: [],
+  }).graph;
+  const at = (id: number) => indexGraph(loop).stopIndexById.get(id)!;
+  const ids = (stops: number[]) => stops.map((s) => loop.stopIds[s]);
+
+  it('lists every stop from boarding to alighting', () => {
+    expect(ids(patternStopsBetween(loop, 0, at(A), at(C)))).toEqual([A, B, C]);
+  });
+
+  it('uses the shortest span when the boarding stop appears twice', () => {
+    expect(ids(patternStopsBetween(loop, 0, at(A), at(D)))).toEqual([A, D]);
+  });
+
+  it('falls back to the two ends when the stops are not on the pattern', () => {
+    expect(ids(patternStopsBetween(loop, 0, at(D), at(A)))).toEqual([D, A]);
   });
 });
