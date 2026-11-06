@@ -21,7 +21,7 @@ const Q = 8;
 const STOP_IDS = [A, B, C, D, HOME, X, P, Q];
 const STOPS = STOP_IDS.map((id) => ({ id, name: `S${id}`, lat: null, lng: null }));
 
-const OPTIONS: ReverseRaptorOptions = { maxRides: 3, minTransferMinutes: 1 };
+const OPTIONS: ReverseRaptorOptions = { maxRides: 3, minTransferMinutes: 1, walkTimeFactor: 1 };
 
 function m(clock: string): number {
   const minutes = toServiceMinutes(clock);
@@ -35,16 +35,17 @@ function trip(
   stops: readonly number[],
   start: string,
   gapMinutes: number,
-  label = `${routeId}@${start}`,
+  headwayMinutes: number | null = null,
 ): GraphTripInput {
   return {
     routeId,
     routeName: `L${routeId}`,
-    mode: 'subway',
-    label,
+    mode: headwayMinutes === null ? 'subway' : 'bus',
+    label: `${routeId}@${start}`,
+    headwayMinutes,
     stopTimes: stops.map((stopId, i) => {
       const time = m(start) + i * gapMinutes;
-      return { stopId, arrival: time, departure: time };
+      return { stopId, arrival: time, departure: time, source: 'timetable', confidence: 'high' };
     }),
   };
 }
@@ -132,7 +133,57 @@ describe('reverseRaptor', () => {
   });
 });
 
+describe('reverseRaptor headway segments', () => {
+  // 버스 9: X → C 막차 23:00 (구간 10분), 배차 15분. C에서 HOME 막차 22:35.
+  const bus = trip(9, [X, C], '23:00', 10, 15);
+
+  it('uses the worst wait before the last run when the last run is too late', () => {
+    const journey = search([...BASE_TRIPS.slice(3), bus]).journeyFrom(X);
+    // C 내림 한계 22:34 − 탑승 10분 − 배차 15분 = 22:09
+    expect(journey?.latestDeparture).toBe(m('22:09'));
+    const first = journey?.legs[0];
+    expect(first?.kind === 'ride' && first.headwayMinutes).toBe(15);
+    expect(first?.kind === 'ride' && [first.depart, first.arrive]).toEqual([
+      m('22:24'),
+      m('22:34'),
+    ]);
+    expect(journey?.rides).toBe(2);
+  });
+
+  it('takes the last run itself when it arrives in time', () => {
+    const late = trip(2, LINE_2, '23:30', 15);
+    const journey = search([late, bus]).journeyFrom(X);
+    expect(journey?.latestDeparture).toBe(m('23:00'));
+    const first = journey?.legs[0];
+    expect(first?.kind === 'ride' && first.headwayMinutes).toBeNull();
+  });
+});
+
+describe('walk time factor', () => {
+  it('scales footpath minutes', () => {
+    const trips = [...BASE_TRIPS, trip(3, [X, D], '22:21', 10)];
+    const footpaths = [{ fromStopId: D, toStopId: C, walkSeconds: 240 }];
+    // 걷기 4분이면 22:31, 느림(× 1.25) 5분이면 22:30
+    expect(search(trips, footpaths).journeyFrom(D)?.latestDeparture).toBe(m('22:31'));
+    const slow = search(trips, footpaths, { ...OPTIONS, walkTimeFactor: 1.25 });
+    expect(slow.journeyFrom(D)?.latestDeparture).toBe(m('22:30'));
+  });
+});
+
 describe('buildTransitGraph', () => {
+  it('keeps the input stop order and makes times non-decreasing', () => {
+    const input = trip(10, [A, B, C], '22:00', 10);
+    const swapped = {
+      ...input,
+      stopTimes: input.stopTimes.map((st, i) =>
+        i === 1 ? { ...st, arrival: m('21:50'), departure: m('21:50') } : st,
+      ),
+    };
+    const { graph } = buildTransitGraph({ stops: STOPS, trips: [swapped], footpaths: [] });
+    expect(Array.from(graph.patternStops)).toEqual([0, 1, 2]);
+    expect(Array.from(graph.departures)).toEqual([m('22:00'), m('22:00'), m('22:20')]);
+  });
+
   it('splits trips that overtake into separate patterns', () => {
     const slow = trip(7, [A, B, C], '22:00', 20);
     const fast = trip(7, [A, B, C], '22:05', 5);

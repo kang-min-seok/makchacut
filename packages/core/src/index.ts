@@ -4,6 +4,7 @@ export * from '#graph/build-graph';
 export * from '#graph/graph-index';
 export * from '#graph/stops-near';
 export * from '#graph/transit-graph';
+export * from '#plan/access';
 export * from '#raptor/journey';
 export * from '#raptor/reverse-raptor';
 export * from '#stop-last/align-stop-sequences';

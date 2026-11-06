@@ -1,4 +1,11 @@
-import { TRANSIT_MODES, type TransitGraph, type TransitMode } from '#graph/transit-graph';
+import {
+  TIME_SOURCES,
+  type TimeSource,
+  TRANSIT_MODES,
+  type TransitGraph,
+  type TransitMode,
+} from '#graph/transit-graph';
+import { CONFIDENCE_LEVELS, type Confidence } from '#stop-last/confidence';
 
 export type GraphStopInput = {
   id: number;
@@ -11,6 +18,8 @@ export type GraphStopTimeInput = {
   stopId: number;
   arrival: number | null;
   departure: number | null;
+  source: TimeSource;
+  confidence: Confidence;
 };
 
 export type GraphTripInput = {
@@ -19,7 +28,10 @@ export type GraphTripInput = {
   mode: TransitMode;
   // 결과 설명용 (열차번호·행선지 등)
   label: string;
+  // 정차 순서대로 (빌더는 순서를 바꾸지 않는다)
   stopTimes: readonly GraphStopTimeInput[];
+  // 막차 이전을 배차 기반으로 다룰 때의 배차 간격(분). 버스만.
+  headwayMinutes: number | null;
 };
 
 export type GraphFootpathInput = {
@@ -42,13 +54,25 @@ export type GraphBuildReport = {
   droppedStopTimes: number;
 };
 
-type TimedStop = { stop: number; arrival: number; departure: number };
+type TimedStop = {
+  stop: number;
+  arrival: number;
+  departure: number;
+  source: TimeSource;
+  confidence: Confidence;
+};
 type PreparedTrip = { input: GraphTripInput; stops: TimedStop[] };
-type Pattern = { routeId: number; routeName: string; mode: TransitMode; trips: PreparedTrip[] };
+type Pattern = {
+  routeId: number;
+  routeName: string;
+  mode: TransitMode;
+  headwayMinutes: number | null;
+  trips: PreparedTrip[];
+};
 
 const MIN_TRIP_STOPS = 2;
 
-// 시각이 하나만 있으면 다른 쪽에 같은 값을 쓰고, 출발 순으로 정렬해 도착 ≤ 출발, 직전 출발 ≤ 도착을 맞춘다
+// 시각이 하나만 있으면 다른 쪽에 같은 값을 쓰고, 입력 순서 그대로 도착 ≤ 출발, 직전 출발 ≤ 도착을 맞춘다
 function prepareTrip(
   trip: GraphTripInput,
   stopIndexById: ReadonlyMap<number, number>,
@@ -63,12 +87,15 @@ function prepareTrip(
       dropped += 1;
       continue;
     }
-    timed.push({ stop, arrival: Math.min(arrival, departure), departure });
-  }
-  timed.sort((a, b) => a.departure - b.departure);
-  for (let i = 1; i < timed.length; i += 1) {
-    const current = timed[i]!;
-    current.arrival = Math.max(current.arrival, timed[i - 1]!.departure);
+    const previous = timed.at(-1)?.departure ?? -Infinity;
+    const safeDeparture = Math.max(departure, previous);
+    timed.push({
+      stop,
+      arrival: Math.min(Math.max(arrival, previous), safeDeparture),
+      departure: safeDeparture,
+      source: st.source,
+      confidence: st.confidence,
+    });
   }
   return { stops: timed, dropped };
 }
@@ -94,15 +121,17 @@ function splitFifo(trips: PreparedTrip[]): PreparedTrip[][] {
 function groupPatterns(trips: PreparedTrip[]): Pattern[] {
   const byKey = new Map<string, PreparedTrip[]>();
   for (const trip of trips) {
-    const key = `${trip.input.routeId}|${trip.stops.map((s) => s.stop).join(',')}`;
+    const key = `${trip.input.routeId}|${trip.input.headwayMinutes ?? ''}|${trip.stops.map((s) => s.stop).join(',')}`;
     const group = byKey.get(key);
     if (group) group.push(trip);
     else byKey.set(key, [trip]);
   }
   const patterns: Pattern[] = [];
   for (const group of byKey.values()) {
-    const { routeId, routeName, mode } = group[0]!.input;
-    for (const fifo of splitFifo(group)) patterns.push({ routeId, routeName, mode, trips: fifo });
+    const { routeId, routeName, mode, headwayMinutes } = group[0]!.input;
+    for (const fifo of splitFifo(group)) {
+      patterns.push({ routeId, routeName, mode, headwayMinutes, trips: fifo });
+    }
   }
   return patterns;
 }
@@ -151,6 +180,8 @@ export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
   const patternStops = new Int32Array(stopTotal);
   const arrivals = new Float32Array(timeTotal);
   const departures = new Float32Array(timeTotal);
+  const timeSources = new Uint8Array(timeTotal);
+  const timeConfidences = new Uint8Array(timeTotal);
   const tripLabels: string[] = [];
   patterns.forEach((p, i) => {
     p.trips[0]!.stops.forEach((s, j) => {
@@ -162,6 +193,8 @@ export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
       for (const s of trip.stops) {
         arrivals[cursor] = s.arrival;
         departures[cursor] = s.departure;
+        timeSources[cursor] = TIME_SOURCES.indexOf(s.source);
+        timeConfidences[cursor] = CONFIDENCE_LEVELS.indexOf(s.confidence);
         cursor += 1;
       }
     }
@@ -183,9 +216,12 @@ export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
     patternStops,
     patternTripOffsets,
     patternTimeOffsets,
+    patternHeadwayMinutes: Float32Array.from(patterns, (p) => p.headwayMinutes ?? Number.NaN),
     tripLabels,
     arrivals,
     departures,
+    timeSources,
+    timeConfidences,
     footpathFrom: Int32Array.from(footpaths, (f) => stopIndexById.get(f.fromStopId)!),
     footpathTo: Int32Array.from(footpaths, (f) => stopIndexById.get(f.toStopId)!),
     footpathSeconds: Int32Array.from(footpaths, (f) => f.walkSeconds),

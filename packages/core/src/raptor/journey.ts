@@ -1,4 +1,13 @@
-import { patternStopAt, timeIndex, type TransitGraph } from '#graph/transit-graph';
+import {
+  confidenceAt,
+  headwayOf,
+  patternStopAt,
+  type TimeSource,
+  timeIndex,
+  timeSourceAt,
+  type TransitGraph,
+} from '#graph/transit-graph';
+import type { Confidence } from '#stop-last/confidence';
 import { alightLimitOf, type ReverseRaptorResult } from '#raptor/reverse-raptor';
 
 export type RideLeg = {
@@ -7,8 +16,14 @@ export type RideLeg = {
   trip: number;
   fromStop: number;
   toStop: number;
+  // 배차 기반이면 최악 대기 뒤 출발(= 정류장 도착 + 배차간격)
   depart: number;
   arrive: number;
+  // 배차 기반 탑승이면 배차 간격(분), 막차·열차 시각 그대로면 null
+  headwayMinutes: number | null;
+  // 탄 정류장 시각의 출처·신뢰도
+  timeSource: TimeSource;
+  confidence: Confidence;
 };
 
 export type WalkLeg = {
@@ -31,6 +46,9 @@ export type Journey = {
 
 type LabelKind = 'ride' | 'walk';
 type Label = { round: number; kind: LabelKind; value: number };
+
+// 배차 기반 구간은 도착을 더하기·빼기로 다시 구해 부동소수 오차가 생길 수 있다
+const TIME_EPSILON = 1e-6;
 
 // 이 정류장의 가장 늦은 값. 같으면 덜 타는 쪽.
 export function bestLabelAt(result: ReverseRaptorResult, stop: number): Label | undefined {
@@ -55,10 +73,10 @@ function continuationAfterAlight(
   for (let roundNumber = 0; roundNumber < beforeRound; roundNumber += 1) {
     const round = result.rounds[roundNumber]!;
     const limit = alightLimitOf(round, roundNumber, stop, result.minTransferMinutes);
-    if (arrival > limit) continue;
+    if (arrival > limit + TIME_EPSILON) continue;
     // 바로 갈아타는 쪽이 걷는 쪽보다 구간이 적다
     const slack = roundNumber === 0 ? 0 : result.minTransferMinutes;
-    const rideFits = arrival <= round.ride[stop]! - slack;
+    const rideFits = arrival <= round.ride[stop]! - slack + TIME_EPSILON;
     return { round: roundNumber, kind: rideFits ? 'ride' : 'walk', value: limit };
   }
   return undefined;
@@ -75,14 +93,22 @@ function rideLeg(
   const trip = r.rideTrip[stop]!;
   const board = r.rideBoardPosition[stop]!;
   const alight = r.rideAlightPosition[stop]!;
+  const boardCell = timeIndex(graph, pattern, trip, board);
+  const lastDepart = graph.departures[boardCell]!;
+  const lastArrive = graph.arrivals[timeIndex(graph, pattern, trip, alight)]!;
+  const headway = r.rideByHeadway[stop] === 1 ? (headwayOf(graph, pattern) ?? 0) : null;
+  const depart = headway === null ? lastDepart : r.ride[stop]! + headway;
   return {
     kind: 'ride',
     pattern,
     trip,
     fromStop: stop,
     toStop: patternStopAt(graph, pattern, alight),
-    depart: graph.departures[timeIndex(graph, pattern, trip, board)]!,
-    arrive: graph.arrivals[timeIndex(graph, pattern, trip, alight)]!,
+    depart,
+    arrive: depart + (lastArrive - lastDepart),
+    headwayMinutes: headway,
+    timeSource: timeSourceAt(graph, boardCell),
+    confidence: confidenceAt(graph, boardCell),
   };
 }
 
@@ -107,7 +133,7 @@ export function reconstructJourney(
         kind: 'walk',
         fromStop: stop,
         toStop,
-        seconds: graph.footpathSeconds[footpath]!,
+        seconds: graph.footpathSeconds[footpath]! * result.walkTimeFactor,
       });
       stop = toStop;
       label = { round: label.round, kind: 'ride', value: round.ride[toStop]! };
