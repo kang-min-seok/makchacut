@@ -188,6 +188,80 @@ describe('8501 (Seoul API first on weekdays, GBIS by day type otherwise)', () =>
   });
 });
 
+describe('alignStopSequences (서울 → 경기 순번 짝)', () => {
+  const seq = (stops: readonly [number, string, number][]) =>
+    stops.map(([s, name, stopId]) => ({ seq: s, name, stopId }));
+
+  // 4108 실데이터 순서: 경기는 같은 통과 지점을 가는 길에 (경유), 오는 길에 (미정차)로 부르고 서울은 둘 다 (미정차)다.
+  // 앞쪽 탐색이면 서울 #18이 경기 복귀 #44와 이름으로 맞아 명동입구B(#35)까지 건너뛴다 (2026-11-09 회귀)
+  it('does not jump to a passing stop on the way back (4108)', () => {
+    const gbis = seq([
+      [1, '나루마을.월드반도', 743],
+      [10, '수원신갈IC(미정차)', 675],
+      [18, '청계산입구역(경유)', 683],
+      [28, '서울시청', 757],
+      [35, '명동입구B', 764],
+      [36, '명동성당', 765],
+      [44, '청계산입구역(미정차)', 697],
+      [55, '예당마을.롯데캐슬(중)', 772],
+    ]);
+    const seoul = seq([
+      [1, '나루마을.월드반도', 743],
+      [10, '수원신갈IC(미정차)', 875],
+      [18, '청계산입구역(미정차)', 883],
+      [28, '서울시청', 757],
+      [35, '명동입구B', 764],
+      [36, '명동성당', 765],
+      [44, '청계산입구역(미정차)', 897],
+      [55, '예당마을.롯데캐슬(중)', 772],
+    ]);
+    expect([...alignStopSequences(gbis, seoul)]).toEqual([
+      [1, 1],
+      [28, 28],
+      [35, 35],
+      [36, 36],
+      [55, 55],
+    ]);
+  });
+
+  // 8844: 서울 목록 앞쪽 정류장이 경기 목록에서는 맨 끝(#70)에만 있다 — 그 한 짝 때문에 나머지를 버리지 않는다
+  it('drops a single pair at the far end rather than every stop before it', () => {
+    const gbis = seq([
+      [1, '광릉내', 6300],
+      [2, '신광마을입구', 6321],
+      [3, '진접역', 6322],
+      [70, '광릉내종점', 6320],
+    ]);
+    const seoul = seq([
+      [2, '광릉내종점', 6320],
+      [3, '신광마을입구', 6321],
+      [4, '진접역', 6322],
+    ]);
+    expect([...alignStopSequences(gbis, seoul)]).toEqual([
+      [3, 2],
+      [4, 3],
+    ]);
+  });
+
+  // 7790: 경기 쪽에 없는 정류장이 복귀 구간의 이름만 같은 길 건너 정류장(통합 안 됨)과 맞아도 그 사이를 버리지 않는다
+  it('skips a lone same-name match on the way back instead of the stops before it', () => {
+    const gbis = seq([
+      [10, '와우지구', 5800],
+      [11, '봉담읍사무소', 5801],
+      [59, '수원대입구', 5739],
+    ]);
+    const seoul = seq([
+      [9, '수원대입구', 5788],
+      [10, '와우지구', 5800],
+      [11, '봉담읍사무소', 5801],
+    ]);
+    expect([...alignStopSequences(gbis, seoul)]).toEqual([
+      [10, 10],
+      [11, 11],
+    ]);
+  });
+});
+
 describe('Seoul-only route day type fallback', () => {
   const stops = [stop(1, 'A', 'outbound', null), stop(2, 'B', 'outbound', null)];
   const rows = computeRouteStopLast({
