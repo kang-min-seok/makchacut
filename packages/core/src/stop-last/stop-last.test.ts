@@ -346,6 +346,48 @@ describe('Seoul-only route by day type', () => {
   });
 });
 
+describe('night route whose origin last time folds past 04:00 (N61)', () => {
+  // 기점 23:40~04:10. 서울 lastTm은 02:35~02:59에서 오르내리는 섞인 값이라 기점 막차(28:10)보다 이르다
+  const stops = [
+    stop(1, '양천공영차고지', 'outbound', 0),
+    stop(2, '건대입구역1번출구', 'outbound', 120 * 60),
+    stop(3, '서울교대사거리', 'outbound', 20 * 60),
+  ];
+  const schedule: DaySchedule = {
+    firstAtOrigin: at('23:40'),
+    lastAtOrigin: at('04:10'),
+    firstAtTurn: null,
+    lastAtTurn: null,
+  };
+  const rows = computeRouteStopLast({
+    routeName: 'N61',
+    stops,
+    schedules: { sat: schedule },
+    holidayFromSunday: true,
+    seoul: {
+      stops,
+      observed: {
+        sat: new Map([
+          [2, at('02:59')],
+          [3, at('02:45')],
+        ]),
+      },
+      lastAtOrigin: { sat: usableSchedule('N61', schedule)?.lastAtOrigin ?? null },
+      seqMap: new Map([
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ]),
+    },
+  });
+
+  it('estimates every stop after the unfolded origin without zero-minute or backward rides', () => {
+    const minutes = [1, 2, 3].map((seq) => rowAt(rows, seq, 'sat')?.lastMinutes ?? 0);
+    expect(minutes).toEqual([at('04:10') + 24 * 60, at('06:10') + 24 * 60, at('06:30') + 24 * 60]);
+    expect(rows.every((row) => row.source !== 'seoul_api')).toBe(true);
+  });
+});
+
 describe('usableSchedule', () => {
   const schedule = (first: string, last: string, turn: [string, string] | null = null) => ({
     firstAtOrigin: at(first),
@@ -386,6 +428,14 @@ describe('usableSchedule', () => {
       lastAtOrigin: at('03:30'),
       lastAtTurn: at('04:10') + 24 * 60,
     });
+  });
+
+  it('unfolds an origin last time folded past 04:00 for night routes only (N61)', () => {
+    expect(usableSchedule('N61', schedule('23:40', '04:10'))?.lastAtOrigin).toBe(
+      at('04:10') + 24 * 60,
+    );
+    // 낮에 시작하는 노선의 04~06시 막차는 첫차 같은 잘못된 값이라 펴지 않는다
+    expect(usableSchedule('1162', schedule('05:00', '04:30'))?.lastAtOrigin).toBe(at('04:30'));
   });
 });
 
