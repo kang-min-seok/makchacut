@@ -432,13 +432,27 @@ describe('cleanObservedLast', () => {
     const cleaned = cleanObservedLast(
       stops,
       new Map([
-        [1, at('23:30')],
+        [1, at('01:30')],
         [2, at('03:50')],
         [3, at('04:20')],
       ]),
-      at('23:30'),
+      at('01:30'),
     );
     expect(cleaned.get(3)).toEqual({ lastMinutes: at('04:20') + 24 * 60, interpolated: false });
+  });
+
+  // 1162·4300-2: 자정 전에 끝나는 노선의 05시대 lastTm은 첫차 시각이라 다음 날 아침 막차로 펴지 않는다
+  it('drops early-morning values of routes that end before midnight', () => {
+    const cleaned = cleanObservedLast(
+      stops,
+      new Map([
+        [1, at('23:00')],
+        [2, at('23:05')],
+        [3, at('05:10')],
+      ]),
+      at('23:00'),
+    );
+    expect(cleaned.has(3)).toBe(false);
   });
 });
 

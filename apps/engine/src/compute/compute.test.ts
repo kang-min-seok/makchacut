@@ -66,6 +66,36 @@ describe('buildStopLast', () => {
   });
 });
 
+describe('buildStopLast Seoul lower bound', () => {
+  // 4300-2: 서울 쪽 주말 시간표가 운행 안 함(00:00/00:00)이면 그 1440분을 기준으로 05시대 첫차 값을 다음 날 새벽 막차로 펴지 않는다
+  it('ignores a no-service Seoul schedule as the observation lower bound', () => {
+    const noService = {
+      firstAtOrigin: 1440,
+      lastAtOrigin: 1440,
+      firstAtTurn: null,
+      lastAtTurn: null,
+    };
+    const build = buildStopLast({
+      routes: [
+        { routeId: 1, source: 'gbis', sourceRouteId: '241007238', name: '4300-2' },
+        { routeId: 2, source: 'seoul_bus', sourceRouteId: '241007238', name: '4300-2군포' },
+      ],
+      routeStops: [
+        routeStop(1, 1, 100, 0),
+        routeStop(1, 2, 101, 600),
+        routeStop(2, 1, 100, null),
+        routeStop(2, 2, 101, null),
+      ],
+      schedules: [
+        { routeId: 1, dayType: 'sat', ...weekdaySchedule(1230) },
+        { routeId: 2, dayType: 'sat', ...noService },
+      ],
+      observations: [{ routeId: 2, seq: 2, dayType: 'sat', lastMinutes: 325 }],
+    });
+    expect(build.rows.every((row) => row.lastMinutes < 1440)).toBe(true);
+  });
+});
+
 describe('warnings', () => {
   it('flags large shrink or growth but not the first fill', () => {
     expect(rowChangeWarning('footpath', 0, 1000)).toBeUndefined();

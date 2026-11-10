@@ -4,6 +4,7 @@ import {
   computeRouteStopLast,
   type DaySchedule,
   type SeoulObservation,
+  usableSchedule,
 } from '@makchacut/core';
 import type {
   BusRoute,
@@ -65,8 +66,12 @@ export function buildStopLast(inputs: StopLastInputs): StopLastBuild {
       byDay.set(o.seq, o.lastMinutes);
       observed[o.dayType] = byDay;
     }
+    // 운행 안 함(00:00/00:00)·새벽 노선 값을 관측 하한으로 쓰지 않는다 (4300-2군포 주말 1440분 → 05시대 값을 다음 날로 펴던 문제)
     const lastAtOrigin: ByDayType<number | null> = Object.fromEntries(
-      (schedulesByRoute.get(seoulRoute.routeId) ?? []).map((s) => [s.dayType, s.lastAtOrigin]),
+      (schedulesByRoute.get(seoulRoute.routeId) ?? []).map((s) => [
+        s.dayType,
+        usableSchedule(seoulRoute.name, s)?.lastAtOrigin ?? null,
+      ]),
     );
     return {
       stops: seoulStops,
