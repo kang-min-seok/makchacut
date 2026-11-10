@@ -195,6 +195,35 @@ describe('8501 (Seoul API first on weekdays, GBIS by day type otherwise)', () =>
   });
 });
 
+describe('Seoul observations on a GBIS route', () => {
+  // 4108 일요일: 서울 쪽 기점 막차(21:20)가 경기 기점 막차(22:40)보다 이르면, 그 사이 관측(22:13)은 기점 막차 전이라 불가능하다
+  it('drops observations earlier than the GBIS origin last run', () => {
+    const stops = [stop(1, '나루마을', 'outbound', 0), stop(2, '다은마을', 'outbound', 5 * 60)];
+    const rows = computeRouteStopLast({
+      routeName: '4108',
+      stops,
+      schedules: { sun: daySchedule(at('22:40'), null) },
+      holidayFromSunday: false,
+      seoul: {
+        stops,
+        observed: {
+          sun: new Map([
+            [1, at('22:13')],
+            [2, at('22:46')],
+          ]),
+        },
+        lastAtOrigin: { sun: at('21:20') },
+        seqMap: new Map([
+          [1, 1],
+          [2, 2],
+        ]),
+      },
+    });
+    expect(rowAt(rows, 1, 'sun')).toMatchObject({ lastMinutes: at('22:40'), source: 'gbis_eta' });
+    expect(rowAt(rows, 2, 'sun')).toMatchObject({ lastMinutes: at('22:46'), source: 'seoul_api' });
+  });
+});
+
 describe('alignStopSequences (서울 → 경기 순번 짝)', () => {
   const seq = (stops: readonly [number, string, number][]) =>
     stops.map(([s, name, stopId]) => ({ seq: s, name, stopId }));
