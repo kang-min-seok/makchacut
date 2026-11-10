@@ -1,7 +1,8 @@
-import { and, asc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, ne, notInArray, notLike, or, sql } from 'drizzle-orm';
 import type { DayType } from '@makchacut/core';
 import { type DbExecutor, ingestTarget } from '@makchacut/db';
 import { chunk } from '#jobs/stores/chunk';
+import { TARGET_DATA_ERROR_NAME } from '#jobs/target-data-error';
 
 // 목록 API 호출 자체를 하나의 대상으로 두고 같은 방식으로 갱신 주기를 관리한다
 export const LIST_TARGET_ID = '*';
@@ -9,6 +10,11 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 const MAX_ERROR_LENGTH = 500;
 // 이만큼 연달아 실패한 대상은 다른 대상을 다 처리한 뒤로 미룬다
 const REPEATED_FAILURE_COUNT = 3;
+// 데이터 오류로 반복 실패한 대상은 데이터가 바뀌지 않는 한 같은 결과라 마지막 시도 뒤 이만큼 지나야 다시 고른다.
+// 원천 장애 같은 일시 실패는 기다리지 않는다.
+const REPEATED_DATA_ERROR_RETRY_HOURS = 7 * 24;
+// markFailure가 String(error)로 남기므로 "TargetDataError: ..."로 시작한다
+const DATA_ERROR_PATTERN = `${TARGET_DATA_ERROR_NAME}:%`;
 
 export type IngestSource = (typeof ingestTarget.source.enumValues)[number];
 
@@ -76,7 +82,8 @@ export async function syncTargets(
 }
 
 // 한 번도 성공하지 못한 대상, 오래전에 성공한 대상 순. 같은 순위면 최근에 시도하지 않은 것부터.
-// 계속 실패하는 대상(데이터 불일치 등)이 맨 앞을 막아 갱신이 멈추지 않게 반복 실패 대상은 맨 뒤로 보낸다.
+// 계속 실패하는 대상(데이터 불일치 등)이 맨 앞을 막아 갱신이 멈추지 않게 반복 실패 대상은 맨 뒤로 보내고,
+// 데이터 오류로 반복 실패한 대상은 재시도 간격이 지나야 고른다.
 export async function pickDueTargets(
   db: DbExecutor,
   source: IngestSource,
@@ -95,6 +102,13 @@ export async function pickDueTargets(
         or(
           isNull(ingestTarget.lastSuccessAt),
           lt(ingestTarget.lastSuccessAt, hoursAgo(now, refreshHours)),
+        ),
+        or(
+          lt(ingestTarget.failCount, REPEATED_FAILURE_COUNT),
+          isNull(ingestTarget.lastError),
+          notLike(ingestTarget.lastError, DATA_ERROR_PATTERN),
+          isNull(ingestTarget.lastAttemptAt),
+          lt(ingestTarget.lastAttemptAt, hoursAgo(now, REPEATED_DATA_ERROR_RETRY_HOURS)),
         ),
       ),
     )
