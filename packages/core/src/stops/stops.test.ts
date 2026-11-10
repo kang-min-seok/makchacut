@@ -21,6 +21,15 @@ describe('planStopMerges', () => {
     ]);
   });
 
+  it('ignores leading zeros of stop numbers (모란역 6346/06346)', () => {
+    const merges = planStopMerges([
+      { stopId: 5, name: '모란역', ...north(0), stopNo: '06346' },
+      { stopId: 3, name: '모란역.모란시장', ...north(10), stopNo: '6346' },
+      { stopId: 8, name: '모란역', ...north(15), stopNo: '6347' },
+    ]);
+    expect([...merges]).toEqual([[5, 3]]);
+  });
+
   it('keeps stops apart when far away or numbered differently', () => {
     const merges = planStopMerges([
       { stopId: 1, name: '강남역', ...north(0), stopNo: '22009' },
