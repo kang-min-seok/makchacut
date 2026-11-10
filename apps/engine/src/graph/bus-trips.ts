@@ -15,9 +15,6 @@ export type BusStopLastRow = {
   source: LastTimeSource;
   confidence: Confidence;
   headwayMinutes: number | null;
-  routeSource: 'seoul_bus' | 'gbis';
-  // 그 요일 유형의 bus_schedule 행이 있는지
-  hasDaySchedule: boolean;
 };
 
 const LAST_RUN_LABEL = '막차';

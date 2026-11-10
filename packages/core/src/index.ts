@@ -18,6 +18,7 @@ export * from '#stop-last/confidence';
 export * from '#stop-last/cumulative-seconds';
 export * from '#stop-last/estimate-from-schedule';
 export * from '#stop-last/route-stop-last';
+export * from '#stop-last/schedule-rules';
 export * from '#stops/footpaths';
 export * from '#stops/merge-stops';
 export * from '#time/day-type';

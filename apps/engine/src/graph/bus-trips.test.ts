@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { usableBusStopLast } from '#graph/bus-last-rules';
 import { type BusStopLastRow, busLastRunTrips } from '#graph/bus-trips';
 
 function row(
@@ -17,8 +16,6 @@ function row(
     source: 'gbis_eta',
     confidence: 'high',
     headwayMinutes: 20,
-    routeSource: 'gbis',
-    hasDaySchedule: true,
   };
 }
 
@@ -49,20 +46,5 @@ describe('busLastRunTrips', () => {
   it('keeps one-way routes as a single run', () => {
     const trips = busLastRunTrips([row(1, 'outbound', 1400), row(2, 'outbound', 1410)]);
     expect(trips).toHaveLength(1);
-  });
-});
-
-describe('usableBusStopLast', () => {
-  it('drops late-night values of non-night routes and borrowed Seoul days', () => {
-    const rows = [
-      row(1, 'outbound', 1610),
-      { ...row(1, 'outbound', 1610), routeName: 'N61' },
-      { ...row(2, 'outbound', 1400), routeSource: 'seoul_bus' as const, hasDaySchedule: false },
-      row(3, 'outbound', 1500),
-    ];
-    expect(usableBusStopLast(rows).map((r) => [r.routeName, r.seq])).toEqual([
-      ['N61', 1],
-      ['6003', 3],
-    ]);
   });
 });

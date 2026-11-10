@@ -24,3 +24,13 @@ export function minutesToClock(minutes: number): string {
   const mm = String(rounded % 60).padStart(2, '0');
   return `${hh}:${mm}`;
 }
+
+// 04~06시 값이 기준(그날 밤 시각)보다 반나절 넘게 이르면 서비스 일자 04시 경계를 넘어 아침으로 접힌 심야 값이다
+// (33-1 회차점 막차 04:10 → 250분). 더 늦은 낮 시각은 접힘이 아니라 잘못된 값이라 그대로 둔다.
+const FOLD_WINDOW_END_MINUTES = 6 * 60;
+const FOLDED_GAP_MINUTES = 12 * 60;
+
+export function unfoldServiceMinutes(minutes: number, reference: number): number {
+  const folded = minutes < FOLD_WINDOW_END_MINUTES && reference - minutes > FOLDED_GAP_MINUTES;
+  return folded ? minutes + MINUTES_PER_DAY : minutes;
+}

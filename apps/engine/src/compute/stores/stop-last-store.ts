@@ -20,6 +20,7 @@ export type BusRoute = {
   routeId: number;
   source: BusSource;
   sourceRouteId: string;
+  name: string;
 };
 
 export type LoadedRouteStop = {
@@ -38,7 +39,9 @@ export type LoadedRouteStop = {
 export type LoadedSchedule = {
   routeId: number;
   dayType: DayType;
+  firstAtOrigin: number | null;
   lastAtOrigin: number | null;
+  firstAtTurn: number | null;
   lastAtTurn: number | null;
 };
 
@@ -58,7 +61,12 @@ export type StopLastInputs = {
 
 export async function loadStopLastInputs(db: DbExecutor): Promise<StopLastInputs> {
   const routes = (await db
-    .select({ routeId: route.id, source: route.source, sourceRouteId: route.sourceRouteId })
+    .select({
+      routeId: route.id,
+      source: route.source,
+      sourceRouteId: route.sourceRouteId,
+      name: route.name,
+    })
     .from(route)
     .where(inArray(route.source, [...BUS_SOURCES]))) as BusRoute[];
 
@@ -89,7 +97,9 @@ export async function loadStopLastInputs(db: DbExecutor): Promise<StopLastInputs
     .select({
       routeId: busSchedule.routeId,
       dayType: busSchedule.dayType,
+      firstAtOrigin: busSchedule.firstAtOrigin,
       lastAtOrigin: busSchedule.lastAtOrigin,
+      firstAtTurn: busSchedule.firstAtTurn,
       lastAtTurn: busSchedule.lastAtTurn,
     })
     .from(busSchedule);

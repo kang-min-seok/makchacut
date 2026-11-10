@@ -2,7 +2,7 @@ import {
   alignStopSequences,
   type ByDayType,
   computeRouteStopLast,
-  type ScheduleLast,
+  type DaySchedule,
   type SeoulObservation,
 } from '@makchacut/core';
 import type {
@@ -49,13 +49,8 @@ export function buildStopLast(inputs: StopLastInputs): StopLastBuild {
     routesWithStops.filter((r) => r.source === 'seoul_bus').map((r) => [pairKey(r), r]),
   );
 
-  const schedulesOf = (routeId: number): ByDayType<ScheduleLast> =>
-    Object.fromEntries(
-      (schedulesByRoute.get(routeId) ?? []).map((s) => [
-        s.dayType,
-        { lastAtOrigin: s.lastAtOrigin, lastAtTurn: s.lastAtTurn },
-      ]),
-    );
+  const schedulesOf = (routeId: number): ByDayType<DaySchedule> =>
+    Object.fromEntries((schedulesByRoute.get(routeId) ?? []).map((s) => [s.dayType, s]));
 
   const seoulObservationFor = (
     seoulRoute: BusRoute,
@@ -95,9 +90,10 @@ export function buildStopLast(inputs: StopLastInputs): StopLastBuild {
       continue;
     }
     const rows = computeRouteStopLast({
+      routeName: r.name,
       stops,
       schedules: schedulesOf(r.routeId),
-      scheduleFallback: r.source === 'seoul_bus',
+      holidayFromSunday: r.source === 'seoul_bus',
       seoul: seoulRoute && seoulObservationFor(seoulRoute, stops),
     });
     if (r.source === 'gbis' && rows.length > 0) {
