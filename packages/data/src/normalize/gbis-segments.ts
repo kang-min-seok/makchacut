@@ -2,7 +2,8 @@ import type { GbisWebSegment } from '#gbis';
 
 export type RouteStopRef = {
   seq: number;
-  sourceStopId: string;
+  // 통합 정류장 하나에 원본 정류장 ID가 여럿 묶일 수 있어 후보 전부를 둔다
+  sourceStopIds: readonly string[];
 };
 
 export type SegmentMeasure = {
@@ -23,7 +24,11 @@ export function alignGbisSegments(
   let secondsFromPrevious = 0;
   for (const stop of stops) {
     const segment = bySeq.get(stop.seq);
-    if (!segment || segment.stationId !== stop.sourceStopId || !Number.isFinite(segment.ptts)) {
+    if (
+      !segment ||
+      !stop.sourceStopIds.includes(segment.stationId) ||
+      !Number.isFinite(segment.ptts)
+    ) {
       return undefined;
     }
     aligned.set(stop.seq, {

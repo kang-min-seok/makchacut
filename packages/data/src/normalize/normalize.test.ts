@@ -51,8 +51,8 @@ describe('seoulTimestampMinutes', () => {
 
 describe('alignGbisSegments', () => {
   const stops = [
-    { seq: 1, sourceStopId: 'A' },
-    { seq: 2, sourceStopId: 'B' },
+    { seq: 1, sourceStopIds: ['A'] },
+    { seq: 2, sourceStopIds: ['B'] },
   ];
   const first = { seq: 1, stationId: 'A', ptts: 20, lengthMeters: 0 };
   const second = { seq: 2, stationId: 'B', ptts: 48, lengthMeters: 150 };
@@ -68,6 +68,12 @@ describe('alignGbisSegments', () => {
     expect(alignGbisSegments(stops, [first, { ...second, stationId: 'X' }])).toBeUndefined();
     expect(alignGbisSegments(stops, [first, { ...second, ptts: NaN }])).toBeUndefined();
     expect(alignGbisSegments(stops, [first])).toBeUndefined();
+  });
+
+  it('accepts any source id merged into the same unified stop', () => {
+    const merged = [stops[0]!, { seq: 2, sourceStopIds: ['B', 'B2'] }];
+    const aligned = alignGbisSegments(merged, [first, { ...second, stationId: 'B2' }]);
+    expect(aligned?.get(2)).toEqual({ seconds: 20, meters: 150 });
   });
 });
 
