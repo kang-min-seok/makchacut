@@ -15,9 +15,6 @@ export type BusStopLastRow = {
   source: LastTimeSource;
   confidence: Confidence;
   headwayMinutes: number | null;
-  routeSource: 'seoul_bus' | 'gbis';
-  // 그 요일 유형의 bus_schedule 행이 있는지
-  hasDaySchedule: boolean;
 };
 
 const LAST_RUN_LABEL = '막차';
@@ -68,7 +65,12 @@ export function busLastRunTrips(rows: readonly BusStopLastRow[]): GraphTripInput
     const outbound = sorted.filter((r) => r.direction === 'outbound');
     const inbound = sorted.filter((r) => r.direction === 'inbound');
     const turn = outbound.at(-1);
-    if (outbound.length > 0) trips.push(toTrip(outbound));
+    // 회차점 막차가 회차 전 직전 정류장보다 이르면 회차점에서 따로 출발하는 차다(1336) — 회차 전 운행의 회차점 도착 시각을
+    // 모르므로 회차 전 운행에서 뺀다. 넣으면 빌더가 시각을 맞추느라 마지막 구간이 0분이 된다.
+    const departsSeparately =
+      turn !== undefined && (outbound.at(-2)?.lastMinutes ?? -Infinity) > turn.lastMinutes;
+    const outboundRun = departsSeparately ? outbound.slice(0, -1) : outbound;
+    if (outboundRun.length > 0) trips.push(toTrip(outboundRun));
     if (inbound.length > 0) trips.push(toTrip(turn ? [turn, ...inbound] : inbound));
   }
   return trips;

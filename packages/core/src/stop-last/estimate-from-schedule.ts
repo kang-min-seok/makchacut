@@ -22,6 +22,9 @@ export type StopLastValue = {
 const SECONDS_PER_MINUTE = 60;
 // 시간표 값 그대로인 기점·회차점
 const EXACT_CONFIDENCE: Confidence = 'high';
+// 기점 막차 + 누적을 이보다 더 줄여야 맞는 회차점 막차는 같은 차가 아니라 회차점에서 따로 출발하는 차다
+// (1336·6800: 양쪽 기점 막차가 같은 시각 → 비율 0이면 47km를 0분에 간다)
+const MIN_SQUASH_RATIO = 0.5;
 const BASE_CONFIDENCE: Record<'gbis_eta' | 'distance', Confidence> = {
   gbis_eta: 'medium',
   distance: 'low',
@@ -35,7 +38,7 @@ function turnIndexOf(stops: readonly StopLastStop[]): number {
 
 // 기점·회차점 막차와 구간 소요로 정류장별 막차를 추정한다 (ADR 3항).
 // - 회차 후: 회차점 막차 + 회차점부터 누적
-// - 회차 전: 기점 막차 + 기점부터 누적. 회차점 막차를 넘으면 비율 r로 줄이고 confidence 한 단계↓
+// - 회차 전: 기점 막차 + 기점부터 누적. 회차점 막차를 넘으면 비율 r로 줄이고(r < 0.5면 줄이지 않고) confidence 한 단계↓
 // - 기점 막차가 없거나 회차점 막차보다 늦으면 회차 전은 회차점 막차에서 거꾸로 뺀다 (1551)
 // 통과 정류장((경유) 등)은 탈 수 없어 결과에서 뺀다.
 export function estimateFromSchedule(
@@ -57,11 +60,12 @@ export function estimateFromSchedule(
     return s === undefined ? undefined : s / SECONDS_PER_MINUTE;
   };
   const turnMinutes = toTurn === undefined ? undefined : toTurn / SECONDS_PER_MINUTE;
-  // 기점 막차 + 누적이 회차점 막차를 넘을 때만 축소한다(r < 1)
-  const ratio =
+  // 기점 막차 + 누적이 회차점 막차를 넘을 때만 축소한다(r < 1). 너무 많이 줄여야 하면 줄이지 않는다.
+  const fitRatio =
     originValid && origin !== null && turn !== null && turnMinutes !== undefined && turnMinutes > 0
       ? Math.min((turn - origin) / turnMinutes, 1)
       : 1;
+  const ratio = fitRatio < MIN_SQUASH_RATIO ? 1 : fitRatio;
 
   const estimate = (index: number): { minutes: number; confidence: Confidence } | undefined => {
     const elapsed = minutesAt(index);
@@ -80,9 +84,10 @@ export function estimateFromSchedule(
         : undefined;
     }
     if (originValid && origin !== null) {
-      return ratio < 1
-        ? { minutes: origin + elapsed * ratio, confidence: lowered }
-        : { minutes: origin + elapsed, confidence: base };
+      return {
+        minutes: origin + elapsed * ratio,
+        confidence: fitRatio < 1 ? lowered : base,
+      };
     }
     if (turn !== null && turnMinutes !== undefined) {
       return { minutes: turn - (turnMinutes - elapsed), confidence: lowered };

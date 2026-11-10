@@ -36,7 +36,12 @@ class UnionFind {
   }
 }
 
-const normalizeStopNo = (stopNo: string | null) => stopNo?.trim() || undefined;
+const LEADING_ZEROS = /^0+(?=\d)/;
+
+// 숫자 번호는 앞 0을 무시한다 — 같은 모란역 정류장이 출처에 따라 6346/06346으로 온다
+function normalizeStopNo(stopNo: string | null): string | undefined {
+  return stopNo?.trim().replace(LEADING_ZEROS, '') || undefined;
+}
 
 // 30m 안의 두 원본 정류장이 같은 정류장인가: 번호가 둘 다 있으면 번호로, 한쪽이라도 없으면 이름으로 본다.
 // 통과 지점((경유)/(미정차))은 탈 수 없어 묶지 않는다.

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { usableBusStopLast } from '#graph/bus-last-rules';
 import { type BusStopLastRow, busLastRunTrips } from '#graph/bus-trips';
 
 function row(
@@ -17,8 +16,6 @@ function row(
     source: 'gbis_eta',
     confidence: 'high',
     headwayMinutes: 20,
-    routeSource: 'gbis',
-    hasDaySchedule: true,
   };
 }
 
@@ -46,23 +43,28 @@ describe('busLastRunTrips', () => {
     expect(trip?.stopTimes.map((s) => s.departure)).toEqual([1390, 1415]);
   });
 
+  // 1336: 양쪽 기점 막차가 같은 시각이라 회차 전 직전 정류장(20:30)이 회차점 막차(20:00)보다 늦다
+  it('leaves the turn stop out of the outbound run when the turn departs separately', () => {
+    const trips = busLastRunTrips([
+      row(1, 'outbound', 1200),
+      row(2, 'outbound', 1230),
+      row(3, 'outbound', 1200),
+      row(4, 'inbound', 1210),
+    ]);
+    expect(trips.map((t) => t.stopTimes.map((s) => [s.stopId, s.departure]))).toEqual([
+      [
+        [101, 1200],
+        [102, 1230],
+      ],
+      [
+        [103, 1200],
+        [104, 1210],
+      ],
+    ]);
+  });
+
   it('keeps one-way routes as a single run', () => {
     const trips = busLastRunTrips([row(1, 'outbound', 1400), row(2, 'outbound', 1410)]);
     expect(trips).toHaveLength(1);
-  });
-});
-
-describe('usableBusStopLast', () => {
-  it('drops late-night values of non-night routes and borrowed Seoul days', () => {
-    const rows = [
-      row(1, 'outbound', 1610),
-      { ...row(1, 'outbound', 1610), routeName: 'N61' },
-      { ...row(2, 'outbound', 1400), routeSource: 'seoul_bus' as const, hasDaySchedule: false },
-      row(3, 'outbound', 1500),
-    ];
-    expect(usableBusStopLast(rows).map((r) => [r.routeName, r.seq])).toEqual([
-      ['N61', 1],
-      ['6003', 3],
-    ]);
   });
 });

@@ -21,13 +21,20 @@ const routeStop = (
   segmentMeters: null,
 });
 
+const weekdaySchedule = (lastAtOrigin: number) => ({
+  firstAtOrigin: null,
+  lastAtOrigin,
+  firstAtTurn: null,
+  lastAtTurn: null,
+});
+
 describe('buildStopLast', () => {
   // 1: 경기 4108, 2: 같은 노선의 서울 쪽(busRouteId = GBIS routeId), 3: 서울 전용 노선
   const inputs = {
     routes: [
-      { routeId: 1, source: 'gbis' as const, sourceRouteId: '233000270' },
-      { routeId: 2, source: 'seoul_bus' as const, sourceRouteId: '233000270' },
-      { routeId: 3, source: 'seoul_bus' as const, sourceRouteId: '100100001' },
+      { routeId: 1, source: 'gbis' as const, sourceRouteId: '233000270', name: '4108' },
+      { routeId: 2, source: 'seoul_bus' as const, sourceRouteId: '233000270', name: '4108' },
+      { routeId: 3, source: 'seoul_bus' as const, sourceRouteId: '100100001', name: '100' },
     ],
     routeStops: [
       routeStop(1, 1, 100, 0),
@@ -37,8 +44,8 @@ describe('buildStopLast', () => {
       routeStop(3, 1, 200, null),
     ],
     schedules: [
-      { routeId: 1, dayType: 'weekday' as const, lastAtOrigin: 1360, lastAtTurn: null },
-      { routeId: 3, dayType: 'weekday' as const, lastAtOrigin: 1400, lastAtTurn: null },
+      { routeId: 1, dayType: 'weekday' as const, ...weekdaySchedule(1360) },
+      { routeId: 3, dayType: 'weekday' as const, ...weekdaySchedule(1400) },
     ],
     observations: [{ routeId: 2, seq: 2, dayType: 'weekday' as const, lastMinutes: 1375 }],
   };
@@ -52,9 +59,40 @@ describe('buildStopLast', () => {
       lastMinutes: 1375,
       source: 'seoul_api',
     });
-    expect(build.rows.filter((r) => r.routeId === 3)).toHaveLength(4);
+    // 서울 전용 노선도 시간표가 있는 요일만 (평일 값을 주말에 빌리지 않는다)
+    expect(build.rows.filter((r) => r.routeId === 3).map((r) => r.dayType)).toEqual(['weekday']);
     expect(build.gbisRoutes).toBe(1);
     expect(build.distanceRoutes).toBe(0);
+  });
+});
+
+describe('buildStopLast Seoul lower bound', () => {
+  // 4300-2: 서울 쪽 주말 시간표가 운행 안 함(00:00/00:00)이면 그 1440분을 기준으로 05시대 첫차 값을 다음 날 새벽 막차로 펴지 않는다
+  it('ignores a no-service Seoul schedule as the observation lower bound', () => {
+    const noService = {
+      firstAtOrigin: 1440,
+      lastAtOrigin: 1440,
+      firstAtTurn: null,
+      lastAtTurn: null,
+    };
+    const build = buildStopLast({
+      routes: [
+        { routeId: 1, source: 'gbis', sourceRouteId: '241007238', name: '4300-2' },
+        { routeId: 2, source: 'seoul_bus', sourceRouteId: '241007238', name: '4300-2군포' },
+      ],
+      routeStops: [
+        routeStop(1, 1, 100, 0),
+        routeStop(1, 2, 101, 600),
+        routeStop(2, 1, 100, null),
+        routeStop(2, 2, 101, null),
+      ],
+      schedules: [
+        { routeId: 1, dayType: 'sat', ...weekdaySchedule(1230) },
+        { routeId: 2, dayType: 'sat', ...noService },
+      ],
+      observations: [{ routeId: 2, seq: 2, dayType: 'sat', lastMinutes: 325 }],
+    });
+    expect(build.rows.every((row) => row.lastMinutes < 1440)).toBe(true);
   });
 });
 

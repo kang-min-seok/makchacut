@@ -24,3 +24,12 @@ export function minutesToClock(minutes: number): string {
   const mm = String(rounded % 60).padStart(2, '0');
   return `${hh}:${mm}`;
 }
+
+// 자정 넘어 운행하는 노선(기준 막차가 24시 이후)의 04~06시 값은 서비스 일자 04시 경계를 넘어 아침으로 접힌 심야 값이다
+// (33-1 기점 03:30, 회차점 04:10 → 250분). 자정 전에 끝나는 노선의 04~06시 값은 첫차 시각 같은 잘못된 값이라 그대로 둔다(1162·4300-2).
+const FOLD_WINDOW_END_MINUTES = 6 * 60;
+
+export function unfoldServiceMinutes(minutes: number, reference: number): number {
+  const folded = reference >= MINUTES_PER_DAY && minutes < FOLD_WINDOW_END_MINUTES;
+  return folded ? minutes + MINUTES_PER_DAY : minutes;
+}

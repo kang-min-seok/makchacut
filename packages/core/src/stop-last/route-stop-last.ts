@@ -1,8 +1,9 @@
-import { DAY_TYPES, type DayType } from '#time/day-type';
 import { cleanObservedLast, type ObservedStop } from '#stop-last/clean-observed';
 import { type Confidence, type LastTimeSource, lowerConfidence } from '#stop-last/confidence';
 import type { StopLastStop, TravelSpeeds } from '#stop-last/cumulative-seconds';
-import { estimateFromSchedule, type ScheduleLast } from '#stop-last/estimate-from-schedule';
+import { estimateFromSchedule } from '#stop-last/estimate-from-schedule';
+import { type DaySchedule, usableSchedule } from '#stop-last/schedule-rules';
+import { DAY_TYPES, type DayType } from '#time/day-type';
 import { isPassingStop } from '#transit/passing-stop';
 
 export type ByDayType<T> = Partial<Record<DayType, T>>;
@@ -19,11 +20,13 @@ export type SeoulObservation = {
 };
 
 export type RouteStopLastInput = {
+  // 심야 노선 판정용 (N61 등)
+  routeName: string;
   stops: readonly StopLastStop[];
-  schedules: ByDayType<ScheduleLast>;
-  // true(서울 노선): 그 요일 시간표가 없으면 평일 값을 쓰고 confidence를 낮춘다.
-  // false(경기 노선): 4요일 시간표가 다 있으므로, 없거나 비어 있으면 그 요일은 운행하지 않는다.
-  scheduleFallback: boolean;
+  schedules: ByDayType<DaySchedule>;
+  // true(서울 노선): 공휴일 시간표·관측이 없으면 일요일 값을 쓰고 confidence를 낮춘다.
+  // 그 밖의 요일은 서울·경기 모두 그 요일 시간표가 없으면 운행하지 않는다로 본다 (다른 요일 값을 빌리지 않는다).
+  holidayFromSunday: boolean;
   seoul?: SeoulObservation;
   speeds?: TravelSpeeds;
 };
@@ -36,47 +39,44 @@ export type StopLastRow = {
   confidence: Confidence;
 };
 
-type Picked<T> = { value: T; dayType: DayType; exact: boolean };
+// 서울 시내버스는 공휴일에 일요일 시간표로 운행한다. 서울 API는 공휴일 값을 거의 주지 않는다.
+const HOLIDAY_SOURCE_DAY: DayType = 'sun';
 
-// 그 요일 값, 없으면 평일 값, 그것도 없으면 아무 요일 값 (결정 사항 2)
-function pickDay<T>(byDay: ByDayType<T>, dayType: DayType): Picked<T> | undefined {
-  const exact = byDay[dayType];
-  if (exact !== undefined) return { value: exact, dayType, exact: true };
-  for (const candidate of ['weekday', ...DAY_TYPES] as const) {
-    const value = byDay[candidate];
-    if (value !== undefined) return { value, dayType: candidate, exact: false };
-  }
-  return undefined;
+function sourceDayOf(input: RouteStopLastInput, dayType: DayType): DayType {
+  const borrow =
+    input.holidayFromSunday && dayType === 'holiday' && input.schedules.holiday === undefined;
+  return borrow ? HOLIDAY_SOURCE_DAY : dayType;
 }
 
-const runs = (schedule: ScheduleLast) =>
-  schedule.lastAtOrigin !== null || schedule.lastAtTurn !== null;
+function laterOf(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  return b === null ? a : Math.max(a, b);
+}
 
 function rowsForDay(input: RouteStopLastInput, dayType: DayType): StopLastRow[] {
-  const schedule = input.scheduleFallback
-    ? pickDay(input.schedules, dayType)
-    : input.schedules[dayType] && { value: input.schedules[dayType], dayType, exact: true };
-  if (!input.scheduleFallback && (!schedule || !runs(schedule.value))) return [];
+  const sourceDay = sourceDayOf(input, dayType);
+  const borrowed = sourceDay !== dayType;
+  const daySchedule = input.schedules[sourceDay];
+  const schedule = daySchedule && usableSchedule(input.routeName, daySchedule);
+  if (!schedule) return [];
 
   const byTargetSeq = new Map<number, StopLastRow>();
-  if (schedule) {
-    for (const [seq, value] of estimateFromSchedule(input.stops, schedule.value, input.speeds)) {
-      const confidence = schedule.exact ? value.confidence : lowerConfidence(value.confidence);
-      byTargetSeq.set(seq, { seq, dayType, ...value, confidence });
-    }
+  for (const [seq, value] of estimateFromSchedule(input.stops, schedule, input.speeds)) {
+    const confidence = borrowed ? lowerConfidence(value.confidence) : value.confidence;
+    byTargetSeq.set(seq, { seq, dayType, ...value, confidence });
   }
 
-  const observed = input.seoul && pickDay(input.seoul.observed, dayType);
+  // 그 요일 관측값만 쓴다 — 평일 값을 주말에 빌리면 8501 토요일이 강남 00:31(실제 23:30)이 된다
+  const observed = input.seoul?.observed[sourceDay];
   if (input.seoul && observed) {
     const passing = new Set(input.stops.filter((s) => isPassingStop(s.name)).map((s) => s.seq));
-    const lowerBound = input.seoul.lastAtOrigin[observed.dayType] ?? null;
-    const cleaned = cleanObservedLast(input.seoul.stops, observed.value, lowerBound);
+    // 어느 정류장 막차도 기점 막차보다 이를 수 없다 — 서울 쪽 기점 막차가 더 이르면(4108 일 21:20) 계산 대상 노선의 기점 막차로
+    const lowerBound = laterOf(input.seoul.lastAtOrigin[sourceDay] ?? null, schedule.lastAtOrigin);
+    const cleaned = cleanObservedLast(input.seoul.stops, observed, lowerBound);
     for (const [seoulSeq, value] of cleaned) {
       const seq = input.seoul.seqMap.get(seoulSeq);
       if (seq === undefined || passing.has(seq)) continue;
-      // 그 요일 관측값이 아니면(평일 값 대체) 요일별 시간표 추정이 있을 때 추정을 쓴다 (8501 토·일)
-      if (!observed.exact && byTargetSeq.has(seq)) continue;
-      const steps = (value.interpolated ? 1 : 0) + (observed.exact ? 0 : 1);
+      const steps = (value.interpolated ? 1 : 0) + (borrowed ? 1 : 0);
       byTargetSeq.set(seq, {
         seq,
         dayType,

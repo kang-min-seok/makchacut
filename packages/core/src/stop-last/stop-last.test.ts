@@ -4,6 +4,7 @@ import { cleanObservedLast } from '#stop-last/clean-observed';
 import { cumulativeSeconds, type StopLastStop } from '#stop-last/cumulative-seconds';
 import { estimateFromSchedule } from '#stop-last/estimate-from-schedule';
 import { computeRouteStopLast, type StopLastRow } from '#stop-last/route-stop-last';
+import { type DaySchedule, usableSchedule } from '#stop-last/schedule-rules';
 import { toServiceMinutes } from '#time/service-day';
 
 const at = (clock: string) => {
@@ -31,12 +32,16 @@ function stop(
   };
 }
 
+function daySchedule(lastAtOrigin: number | null, lastAtTurn: number | null): DaySchedule {
+  return { firstAtOrigin: null, lastAtOrigin, firstAtTurn: null, lastAtTurn };
+}
+
 const rowAt = (rows: StopLastRow[], seq: number, dayType: StopLastRow['dayType']) =>
   rows.find((row) => row.seq === seq && row.dayType === dayType);
 
 describe('6003 (GBIS only, Pangyo turn 23:55)', () => {
   // 기점 동탄2차고지 23:00, 회차점 판교역.낙생육교.현대백화점 23:55 — 4요일 같음 (M0)
-  const schedule = { lastAtOrigin: at('23:00'), lastAtTurn: at('23:55') };
+  const schedule = daySchedule(at('23:00'), at('23:55'));
   const stops = [
     stop(1, '동탄2차고지', 'outbound', 0),
     stop(2, '판교역동편', 'outbound', 55 * 60),
@@ -45,9 +50,10 @@ describe('6003 (GBIS only, Pangyo turn 23:55)', () => {
     stop(5, '이마트.한림대병원', 'inbound', 7 * 60),
   ];
   const rows = computeRouteStopLast({
+    routeName: '6003',
     stops,
     schedules: { weekday: schedule, sat: schedule, sun: schedule, holiday: schedule },
-    scheduleFallback: false,
+    holidayFromSunday: false,
   });
 
   it('boards at the Pangyo turn stop at 23:55 on every day type', () => {
@@ -125,23 +131,24 @@ describe('8501 (Seoul API first on weekdays, GBIS by day type otherwise)', () =>
   ];
   const stopIds = [1, 2, 3, 4, 2];
   const seoulStops = [
-    { seq: 11, name: '수원대학교', stopId: 1 },
-    { seq: 12, name: '예당마을.롯데캐슬(중)', stopId: 2 },
-    { seq: 13, name: '기흥IC(미정차)', stopId: 9 },
-    { seq: 14, name: '강남역우리은행', stopId: 3 },
-    { seq: 15, name: '뱅뱅사거리(중)', stopId: 4 },
-    { seq: 16, name: '예당마을.롯데캐슬(중)', stopId: 2 },
+    { seq: 11, name: '수원대학교', stopId: 1, lat: null, lng: null },
+    { seq: 12, name: '예당마을.롯데캐슬(중)', stopId: 2, lat: null, lng: null },
+    { seq: 13, name: '기흥IC(미정차)', stopId: 9, lat: null, lng: null },
+    { seq: 14, name: '강남역우리은행', stopId: 3, lat: null, lng: null },
+    { seq: 15, name: '뱅뱅사거리(중)', stopId: 4, lat: null, lng: null },
+    { seq: 16, name: '예당마을.롯데캐슬(중)', stopId: 2, lat: null, lng: null },
   ];
-  const weekday = { lastAtOrigin: at('23:40'), lastAtTurn: at('00:50') };
-  const weekend = { lastAtOrigin: at('22:20'), lastAtTurn: at('23:30') };
+  const weekday = daySchedule(at('23:40'), at('00:50'));
+  const weekend = daySchedule(at('22:20'), at('23:30'));
   const seqMap = alignStopSequences(
     gbisStops.map((s, i) => ({ seq: s.seq, stopId: stopIds[i] ?? 0, name: s.name })),
     seoulStops,
   );
   const rows = computeRouteStopLast({
+    routeName: '8501',
     stops: gbisStops,
     schedules: { weekday, sat: weekend, sun: weekend, holiday: weekend },
-    scheduleFallback: false,
+    holidayFromSunday: false,
     seoul: {
       stops: seoulStops,
       // 평일(월요일) 수집 값만 있다
@@ -185,6 +192,35 @@ describe('8501 (Seoul API first on weekdays, GBIS by day type otherwise)', () =>
       confidence: 'high',
     });
     expect(rowAt(rows, 4, 'sun')?.lastMinutes).toBe(at('23:37'));
+  });
+});
+
+describe('Seoul observations on a GBIS route', () => {
+  // 4108 일요일: 서울 쪽 기점 막차(21:20)가 경기 기점 막차(22:40)보다 이르면, 그 사이 관측(22:13)은 기점 막차 전이라 불가능하다
+  it('drops observations earlier than the GBIS origin last run', () => {
+    const stops = [stop(1, '나루마을', 'outbound', 0), stop(2, '다은마을', 'outbound', 5 * 60)];
+    const rows = computeRouteStopLast({
+      routeName: '4108',
+      stops,
+      schedules: { sun: daySchedule(at('22:40'), null) },
+      holidayFromSunday: false,
+      seoul: {
+        stops,
+        observed: {
+          sun: new Map([
+            [1, at('22:13')],
+            [2, at('22:46')],
+          ]),
+        },
+        lastAtOrigin: { sun: at('21:20') },
+        seqMap: new Map([
+          [1, 1],
+          [2, 2],
+        ]),
+      },
+    });
+    expect(rowAt(rows, 1, 'sun')).toMatchObject({ lastMinutes: at('22:40'), source: 'gbis_eta' });
+    expect(rowAt(rows, 2, 'sun')).toMatchObject({ lastMinutes: at('22:46'), source: 'seoul_api' });
   });
 });
 
@@ -262,21 +298,23 @@ describe('alignStopSequences (서울 → 경기 순번 짝)', () => {
   });
 });
 
-describe('Seoul-only route day type fallback', () => {
+describe('Seoul-only route by day type', () => {
   const stops = [stop(1, 'A', 'outbound', null), stop(2, 'B', 'outbound', null)];
+  const observedAt = (first: string, second: string) =>
+    new Map([
+      [1, at(first)],
+      [2, at(second)],
+    ]);
   const rows = computeRouteStopLast({
+    routeName: '8501(예약)화성',
     stops,
-    schedules: { weekday: { lastAtOrigin: at('23:00'), lastAtTurn: null } },
-    scheduleFallback: true,
+    // 토요일 시간표·관측이 아직 없다
+    schedules: { weekday: daySchedule(at('23:00'), null), sun: daySchedule(at('22:30'), null) },
+    holidayFromSunday: true,
     seoul: {
       stops,
-      observed: {
-        weekday: new Map([
-          [1, at('23:00')],
-          [2, at('23:10')],
-        ]),
-      },
-      lastAtOrigin: { weekday: at('23:00') },
+      observed: { weekday: observedAt('23:00', '23:10'), sun: observedAt('22:30', '22:40') },
+      lastAtOrigin: { weekday: at('23:00'), sun: at('22:30') },
       seqMap: new Map([
         [1, 1],
         [2, 2],
@@ -284,24 +322,99 @@ describe('Seoul-only route day type fallback', () => {
     },
   });
 
-  it('stores the weekday value for other day types with lower confidence', () => {
+  it('does not borrow the weekday value for a day without its own schedule', () => {
     expect(rowAt(rows, 2, 'weekday')).toMatchObject({ source: 'seoul_api', confidence: 'high' });
-    expect(rowAt(rows, 2, 'sat')).toMatchObject({
-      lastMinutes: at('23:10'),
+    expect(rows.filter((row) => row.dayType === 'sat')).toEqual([]);
+  });
+
+  it('uses the Sunday value on holidays with lower confidence', () => {
+    expect(rowAt(rows, 2, 'holiday')).toMatchObject({
+      lastMinutes: at('22:40'),
       source: 'seoul_api',
       confidence: 'medium',
     });
+  });
+
+  it('keeps GBIS routes without a holiday schedule out of service on holidays', () => {
+    const gbisRows = computeRouteStopLast({
+      routeName: '6003',
+      stops,
+      schedules: { sun: daySchedule(at('22:30'), null) },
+      holidayFromSunday: false,
+    });
+    expect(gbisRows.filter((row) => row.dayType === 'holiday')).toEqual([]);
+  });
+});
+
+describe('usableSchedule', () => {
+  const schedule = (first: string, last: string, turn: [string, string] | null = null) => ({
+    firstAtOrigin: at(first),
+    lastAtOrigin: at(last),
+    firstAtTurn: turn ? at(turn[0]) : null,
+    lastAtTurn: turn ? at(turn[1]) : null,
+  });
+
+  it('treats first = last = 00:00 as no service (weekend commute route, no return run)', () => {
+    expect(usableSchedule('5000(예약)', schedule('00:00', '00:00', ['00:00', '00:00']))).toBe(
+      undefined,
+    );
+    expect(usableSchedule('학생2', schedule('07:00', '15:55', ['00:00', '00:00']))).toEqual({
+      lastAtOrigin: at('15:55'),
+      lastAtTurn: null,
+    });
+    // 82-1: 회차점 막차만 00:00이면 실제 자정 막차
+    expect(usableSchedule('82-1', schedule('05:00', '23:05', ['06:05', '00:00']))).toEqual({
+      lastAtOrigin: at('23:05'),
+      lastAtTurn: at('00:00'),
+    });
+  });
+
+  it('drops dawn-only routes but keeps night routes that start in the evening', () => {
+    expect(usableSchedule('새벽A148', schedule('03:30', '03:30'))).toBe(undefined);
+    expect(usableSchedule('100출', schedule('03:10', '03:10', ['04:00', '04:00']))).toBe(undefined);
+    expect(usableSchedule('H4', schedule('22:00', '02:50'))?.lastAtOrigin).toBe(at('02:50'));
+    expect(usableSchedule('N26', schedule('00:30', '03:00'))?.lastAtOrigin).toBe(at('03:00'));
+    // 막차가 01:30 전이면 낮에 시작해도 그대로 (3000 회차점 01:30)
+    expect(usableSchedule('3000', schedule('04:30', '01:00', ['05:30', '02:00']))).toEqual({
+      lastAtOrigin: at('01:00'),
+      lastAtTurn: at('02:00'),
+    });
+  });
+
+  it('unfolds a turn time folded past the 04:00 service day boundary (33-1)', () => {
+    expect(usableSchedule('33-1', schedule('23:40', '03:30', ['00:30', '04:10']))).toEqual({
+      lastAtOrigin: at('03:30'),
+      lastAtTurn: at('04:10') + 24 * 60,
+    });
+  });
+});
+
+describe('estimateFromSchedule with an independent turn departure', () => {
+  // 1336·6800: 양쪽 기점 막차가 같은 시각이면 회차 전 구간을 0분으로 줄이지 않는다
+  it('does not squash the outbound run when the turn last departs at the same time', () => {
+    const result = estimateFromSchedule(
+      [
+        stop(1, '기점', 'outbound', 0),
+        stop(2, '중간', 'outbound', 30 * 60),
+        stop(3, '회차점', 'outbound', 30 * 60),
+        stop(4, '복귀', 'inbound', 10 * 60),
+      ],
+      { lastAtOrigin: at('20:00'), lastAtTurn: at('20:00') },
+    );
+    expect(result.get(2)).toMatchObject({ lastMinutes: at('20:30'), confidence: 'low' });
+    expect(result.get(3)?.lastMinutes).toBe(at('20:00'));
+    expect(result.get(4)?.lastMinutes).toBe(at('20:10'));
   });
 });
 
 describe('cleanObservedLast', () => {
   const stops = [
-    { seq: 1, name: '기점' },
-    { seq: 2, name: '예당마을' },
-    { seq: 3, name: '다은마을(중)' },
-    { seq: 4, name: '고속도로(미정차)' },
-    { seq: 5, name: '서울시청' },
-    { seq: 6, name: '서울역' },
+    { seq: 1, name: '기점', lat: null, lng: null },
+    { seq: 2, name: '예당마을', lat: null, lng: null },
+    { seq: 3, name: '다은마을(중)', lat: null, lng: null },
+    { seq: 4, name: '고속도로(미정차)', lat: null, lng: null },
+    { seq: 5, name: '서울시청', lat: null, lng: null },
+    { seq: 6, name: '서울역', lat: null, lng: null },
   ];
 
   it('drops inverted, too-early and passing values, then interpolates', () => {
@@ -321,6 +434,54 @@ describe('cleanObservedLast', () => {
     expect(cleaned.has(4)).toBe(false);
     expect(cleaned.get(3)).toEqual({ lastMinutes: at('23:08'), interpolated: true });
     expect(cleaned.get(6)).toEqual({ lastMinutes: at('23:41'), interpolated: false });
+  });
+
+  // N61 건대→강남 1분: 직선 3.9km를 1분에 갈 수 없다 → 둘 중 하나는 버리고 보간한다
+  it('never keeps both ends of a physically impossible segment', () => {
+    const located = [
+      { seq: 1, name: '건대입구', lat: 37.5404, lng: 127.0692 },
+      { seq: 2, name: '영동대교남단', lat: 37.524, lng: 127.056 },
+      { seq: 3, name: '강남역', lat: 37.4979, lng: 127.0276 },
+      { seq: 4, name: '신논현역', lat: 37.5045, lng: 127.025 },
+    ];
+    const cleaned = cleanObservedLast(
+      located,
+      new Map([
+        [1, at('00:50')],
+        [2, at('00:55')],
+        [3, at('00:56')],
+        [4, at('01:10')],
+      ]),
+      null,
+    );
+    expect([2, 3].filter((seq) => cleaned.get(seq)?.interpolated === false)).toHaveLength(1);
+  });
+
+  it('unfolds night values folded past 04:00 instead of dropping them', () => {
+    const cleaned = cleanObservedLast(
+      stops,
+      new Map([
+        [1, at('01:30')],
+        [2, at('03:50')],
+        [3, at('04:20')],
+      ]),
+      at('01:30'),
+    );
+    expect(cleaned.get(3)).toEqual({ lastMinutes: at('04:20') + 24 * 60, interpolated: false });
+  });
+
+  // 1162·4300-2: 자정 전에 끝나는 노선의 05시대 lastTm은 첫차 시각이라 다음 날 아침 막차로 펴지 않는다
+  it('drops early-morning values of routes that end before midnight', () => {
+    const cleaned = cleanObservedLast(
+      stops,
+      new Map([
+        [1, at('23:00')],
+        [2, at('23:05')],
+        [3, at('05:10')],
+      ]),
+      at('23:00'),
+    );
+    expect(cleaned.has(3)).toBe(false);
   });
 });
 

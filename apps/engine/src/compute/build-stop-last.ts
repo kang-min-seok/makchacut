@@ -2,8 +2,9 @@ import {
   alignStopSequences,
   type ByDayType,
   computeRouteStopLast,
-  type ScheduleLast,
+  type DaySchedule,
   type SeoulObservation,
+  usableSchedule,
 } from '@makchacut/core';
 import type {
   BusRoute,
@@ -49,13 +50,8 @@ export function buildStopLast(inputs: StopLastInputs): StopLastBuild {
     routesWithStops.filter((r) => r.source === 'seoul_bus').map((r) => [pairKey(r), r]),
   );
 
-  const schedulesOf = (routeId: number): ByDayType<ScheduleLast> =>
-    Object.fromEntries(
-      (schedulesByRoute.get(routeId) ?? []).map((s) => [
-        s.dayType,
-        { lastAtOrigin: s.lastAtOrigin, lastAtTurn: s.lastAtTurn },
-      ]),
-    );
+  const schedulesOf = (routeId: number): ByDayType<DaySchedule> =>
+    Object.fromEntries((schedulesByRoute.get(routeId) ?? []).map((s) => [s.dayType, s]));
 
   const seoulObservationFor = (
     seoulRoute: BusRoute,
@@ -70,8 +66,12 @@ export function buildStopLast(inputs: StopLastInputs): StopLastBuild {
       byDay.set(o.seq, o.lastMinutes);
       observed[o.dayType] = byDay;
     }
+    // 운행 안 함(00:00/00:00)·새벽 노선 값을 관측 하한으로 쓰지 않는다 (4300-2군포 주말 1440분 → 05시대 값을 다음 날로 펴던 문제)
     const lastAtOrigin: ByDayType<number | null> = Object.fromEntries(
-      (schedulesByRoute.get(seoulRoute.routeId) ?? []).map((s) => [s.dayType, s.lastAtOrigin]),
+      (schedulesByRoute.get(seoulRoute.routeId) ?? []).map((s) => [
+        s.dayType,
+        usableSchedule(seoulRoute.name, s)?.lastAtOrigin ?? null,
+      ]),
     );
     return {
       stops: seoulStops,
@@ -95,9 +95,10 @@ export function buildStopLast(inputs: StopLastInputs): StopLastBuild {
       continue;
     }
     const rows = computeRouteStopLast({
+      routeName: r.name,
       stops,
       schedules: schedulesOf(r.routeId),
-      scheduleFallback: r.source === 'seoul_bus',
+      holidayFromSunday: r.source === 'seoul_bus',
       seoul: seoulRoute && seoulObservationFor(seoulRoute, stops),
     });
     if (r.source === 'gbis' && rows.length > 0) {
