@@ -4,6 +4,7 @@ import type { StopLastStop, TravelSpeeds } from '#stop-last/cumulative-seconds';
 import { estimateFromSchedule } from '#stop-last/estimate-from-schedule';
 import { type DaySchedule, usableSchedule } from '#stop-last/schedule-rules';
 import { DAY_TYPES, type DayType } from '#time/day-type';
+import { unfoldServiceMinutes } from '#time/service-day';
 import { isPassingStop } from '#transit/passing-stop';
 
 export type ByDayType<T> = Partial<Record<DayType, T>>;
@@ -66,7 +67,10 @@ function contradictedByObservation(
   if (!RESERVED_ROUTE_NAME.test(routeName) || lastAtOrigin === null || !observed?.size) {
     return false;
   }
-  return Math.max(...observed.values()) < lastAtOrigin - OBSERVATION_GAP_MINUTES;
+  const latest = Math.max(
+    ...[...observed.values()].map((minutes) => unfoldServiceMinutes(minutes, lastAtOrigin)),
+  );
+  return latest < lastAtOrigin - OBSERVATION_GAP_MINUTES;
 }
 
 function rowsForDay(input: RouteStopLastInput, dayType: DayType): StopLastRow[] {
