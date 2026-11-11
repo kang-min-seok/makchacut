@@ -53,12 +53,37 @@ function laterOf(a: number | null, b: number | null): number | null {
   return b === null ? a : Math.max(a, b);
 }
 
+// 예약(출근) 노선은 시간표 API가 모체 노선 시간표(05:00~23:50)를 그대로 주기도 한다 — 1550-1(예약)·M4108(예약) 등
+const RESERVED_ROUTE_NAME = /\(예약\)/;
+// 그 요일 관측 막차가 모두 기점 막차보다 이만큼 넘게 이르면 시간표가 틀렸다고 본다 (관측 08~11시 vs 시간표 23시)
+const OBSERVATION_GAP_MINUTES = 3 * 60;
+
+function contradictedByObservation(
+  routeName: string,
+  lastAtOrigin: number | null,
+  observed: ReadonlyMap<number, number> | undefined,
+): boolean {
+  if (!RESERVED_ROUTE_NAME.test(routeName) || lastAtOrigin === null || !observed?.size) {
+    return false;
+  }
+  return Math.max(...observed.values()) < lastAtOrigin - OBSERVATION_GAP_MINUTES;
+}
+
 function rowsForDay(input: RouteStopLastInput, dayType: DayType): StopLastRow[] {
   const sourceDay = sourceDayOf(input, dayType);
   const borrowed = sourceDay !== dayType;
   const daySchedule = input.schedules[sourceDay];
   const schedule = daySchedule && usableSchedule(input.routeName, daySchedule);
   if (!schedule) return [];
+  if (
+    contradictedByObservation(
+      input.routeName,
+      schedule.lastAtOrigin,
+      input.seoul?.observed[sourceDay],
+    )
+  ) {
+    return [];
+  }
 
   const byTargetSeq = new Map<number, StopLastRow>();
   for (const [seq, value] of estimateFromSchedule(input.stops, schedule, input.speeds)) {
