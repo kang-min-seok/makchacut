@@ -28,9 +28,14 @@ function startsAtNight(routeName: string, firstAtOrigin: number | null): boolean
 
 // 정류장 막차 계산에 쓸 그 요일 시간표. 운행하지 않거나 믿을 수 없으면 undefined (그 요일 행을 만들지 않는다).
 export function usableSchedule(routeName: string, schedule: DaySchedule): ScheduleLast | undefined {
-  const lastAtOrigin = isNoService(schedule.firstAtOrigin, schedule.lastAtOrigin)
+  const originLast = isNoService(schedule.firstAtOrigin, schedule.lastAtOrigin)
     ? null
     : schedule.lastAtOrigin;
+  // 밤에 시작하는 노선의 04~06시 기점 막차는 04시 경계를 넘어 아침으로 접힌 값이다 (N61 23:40~04:10 → 250분이 되어 관측·추정이 06~07시로 역행)
+  const lastAtOrigin =
+    originLast !== null && startsAtNight(routeName, schedule.firstAtOrigin)
+      ? unfoldServiceMinutes(originLast, NO_SERVICE_MINUTES)
+      : originLast;
   const turnLast = isNoService(schedule.firstAtTurn, schedule.lastAtTurn)
     ? null
     : schedule.lastAtTurn;
