@@ -346,6 +346,53 @@ describe('Seoul-only route by day type', () => {
   });
 });
 
+describe('reserved route whose schedule is the parent route timetable (1550-1(예약))', () => {
+  const stops = [stop(1, '한신대', 'outbound', 0), stop(2, '신분당선강남역', 'outbound', 50 * 60)];
+  const seoulFor = (observed: Map<number, number>, last: number) => ({
+    stops,
+    observed: { weekday: observed },
+    lastAtOrigin: { weekday: last },
+    seqMap: new Map([
+      [1, 1],
+      [2, 2],
+    ]),
+  });
+  const rowsOf = (routeName: string, observed: Map<number, number>, last = at('23:50')) =>
+    computeRouteStopLast({
+      routeName,
+      stops,
+      schedules: { weekday: daySchedule(last, null) },
+      holidayFromSunday: false,
+      seoul: seoulFor(observed, last),
+    });
+  const morning = new Map([
+    [1, at('09:00')],
+    [2, at('10:03')],
+  ]);
+
+  it('makes no rows when every observation is hours before the scheduled last run', () => {
+    expect(rowsOf('1550-1(예약)', morning)).toEqual([]);
+  });
+
+  it('keeps reserved routes whose observations match the schedule', () => {
+    const night = new Map([
+      [1, at('23:50')],
+      [2, at('00:40')],
+    ]);
+    expect(rowsOf('1550-1(예약)', night)).toHaveLength(2);
+  });
+
+  it('unfolds after-midnight observations before comparing', () => {
+    // 기점 막차 01:20, 관측 04:30은 04시 경계로 접힌 값(270분)이라 펴면 28:30
+    const lateNight = new Map([[2, at('04:30')]]);
+    expect(rowsOf('1550-1(예약)', lateNight, at('01:20'))).toHaveLength(2);
+  });
+
+  it('keeps regular routes even when observations are early', () => {
+    expect(rowsOf('1560A', morning)).toHaveLength(2);
+  });
+});
+
 describe('night route whose origin last time folds past 04:00 (N61)', () => {
   // 기점 23:40~04:10. 서울 lastTm은 02:35~02:59에서 오르내리는 섞인 값이라 기점 막차(28:10)보다 이르다
   const stops = [

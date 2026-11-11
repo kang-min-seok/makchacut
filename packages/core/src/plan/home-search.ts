@@ -1,7 +1,12 @@
 import type { GraphIndex } from '#graph/graph-index';
 import { stopCount, type TransitGraph } from '#graph/transit-graph';
 import { type AccessStop, arrivalTargets } from '#plan/access';
-import { type DetourLevel, detourTravelLimits, NORMAL_HOME_ARRIVAL_MINUTES } from '#plan/detour';
+import {
+  DETOUR_MULTIPLIERS,
+  type DetourLevel,
+  detourTravelLimits,
+  NORMAL_HOME_ARRIVAL_MINUTES,
+} from '#plan/detour';
 import {
   type ReverseRaptorOptions,
   type ReverseRaptorResult,
@@ -12,8 +17,11 @@ import {
 
 export type HomeSearch = {
   homeResult: ReverseRaptorResult;
-  // 우회 한도를 건 결과. 'any'면 undefined.
+  // 정류장별 우회 한도를 건 결과(짧은 경로 후보 모으기용). 'any'면 undefined.
   limitedResult: ReverseRaptorResult | undefined;
+  // 평시(22시 집 도착) 탐색 — 약속 장소별 평시 총 소요를 구한다
+  normalResult: ReverseRaptorResult;
+  detourMultiplier: number;
 };
 
 export function searchHome(
@@ -37,5 +45,5 @@ export function searchHome(
         maxTravelMinutes: limits,
       })
     : undefined;
-  return { homeResult, limitedResult };
+  return { homeResult, limitedResult, normalResult, detourMultiplier: DETOUR_MULTIPLIERS[detour] };
 }
