@@ -1,8 +1,9 @@
 import type { GraphIndex } from '#graph/graph-index';
 import type { TransitGraph } from '#graph/transit-graph';
 import type { AccessStop } from '#plan/access';
+import { normalTravelFrom } from '#plan/detour';
 import { findKeyConnection } from '#plan/key-connection';
-import { type PlanCandidate, planCandidates } from '#plan/plan-candidates';
+import { compareCandidates, type PlanCandidate, planCandidates } from '#plan/plan-candidates';
 import type { JourneyLeg, RideLeg } from '#raptor/journey';
 import { type ReverseRaptorResult, reverseRaptor } from '#raptor/reverse-raptor';
 
@@ -23,8 +24,11 @@ export type TripPlanInput = {
   homeAccess: readonly AccessStop[];
   // 집 진입점 목표(도착 제한 없음)로 돌린 역방향 탐색
   homeResult: ReverseRaptorResult;
-  // 같은 탐색에 우회 한도(정류장별 최대 소요)를 건 결과. 우회 제한이 없으면 undefined.
+  // 같은 탐색에 정류장별 우회 한도를 건 결과(짧은 경로 후보 모으기용). 우회 제한이 없으면 undefined.
   limitedResult: ReverseRaptorResult | undefined;
+  // 평시(22시 집 도착) 탐색과 우회 배수 — 우회 판정은 약속 장소에서 집까지 총 소요로 한다
+  normalResult: ReverseRaptorResult;
+  detourMultiplier: number;
   meetupAccess: readonly AccessStop[];
   options: TripPlanOptions;
 };
@@ -47,6 +51,7 @@ export type TripPlan = {
   detourFallback: boolean;
 };
 
+// travelMinutes: 약속 장소를 나서서(안전 여유 제외) 집에 닿기까지 총 소요
 type HomeCandidate = PlanCandidate & { travelMinutes: number };
 
 function toWay(candidate: PlanCandidate, legs: JourneyLeg[], homeWalkMinutes: number): PlannedWay {
@@ -81,7 +86,8 @@ function homeCandidates(
   return planCandidates(graph, result, meetupAccess, options.safetyMarginMinutes).map(
     (candidate) => {
       const homeArrival = candidate.endTime + (homeWalk.get(candidate.journey.targetStop) ?? 0);
-      return { ...candidate, travelMinutes: homeArrival - candidate.journey.latestDeparture };
+      const leaveMeetup = candidate.latestDeparture + options.safetyMarginMinutes;
+      return { ...candidate, travelMinutes: homeArrival - leaveMeetup };
     },
   );
 }
@@ -121,18 +127,16 @@ export function planTrip(input: TripPlanInput): TripPlan | undefined {
   const all = homeCandidates(input, input.homeResult, homeWalk);
   if (all.length === 0) return undefined;
 
-  const limited = input.limitedResult ? homeCandidates(input, input.limitedResult, homeWalk) : all;
-  const detourFallback = limited.length === 0;
-  const layer = detourFallback ? all : limited;
+  const normal = normalTravelFrom(input.normalResult, input.meetupAccess);
+  const travelLimit = normal === undefined ? Infinity : normal * input.detourMultiplier;
+  const pool = input.limitedResult
+    ? [...homeCandidates(input, input.limitedResult, homeWalk), ...all]
+    : all;
+  const accepted = pool.filter((c) => c.travelMinutes <= travelLimit).sort(compareCandidates);
+  const detourFallback = accepted.length === 0;
+  const layer = detourFallback ? all : accepted;
   const main = layer[0]!;
   const best = all[0]!;
-  const detour =
-    best.latestDeparture > main.latestDeparture
-      ? {
-          deadline: best.latestDeparture,
-          extraMinutes: Math.max(0, Math.round(best.travelMinutes - main.travelMinutes)),
-        }
-      : undefined;
 
   const homeWalkMinutes = homeWalk.get(main.journey.targetStop) ?? 0;
   const key = findKeyConnection(graph, index, main.journey);
@@ -143,8 +147,19 @@ export function planTrip(input: TripPlanInput): TripPlan | undefined {
         layer.map((c) => toWay(c, c.journey.legs, homeWalk.get(c.journey.targetStop) ?? 0)),
       );
 
+  // 핵심 연결로 가는 방법은 집 도착이 같아 main보다 늦게 나서면 덜 걸린다 — 마감은 그중 가장 늦은 출발
+  const deadline = Math.max(main.latestDeparture, ...ways.map((way) => way.latestDeparture));
+  const mainTravel = main.travelMinutes - (deadline - main.latestDeparture);
+  const detour =
+    best.latestDeparture > deadline
+      ? {
+          deadline: best.latestDeparture,
+          extraMinutes: Math.max(0, Math.round(best.travelMinutes - mainTravel)),
+        }
+      : undefined;
+
   return {
-    deadline: main.latestDeparture,
+    deadline,
     anchor: key?.leg,
     ways: ways.length > 0 ? ways : [toWay(main, main.journey.legs, homeWalkMinutes)],
     detour,

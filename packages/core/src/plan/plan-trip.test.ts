@@ -126,6 +126,16 @@ describe('planTrip', () => {
     expect(result.anchor && routeOf(result.anchor)).toBe(31);
   });
 
+  it('never lists a way that leaves later than the deadline', () => {
+    for (const level of ['optimal', 'some', 'any'] as const) {
+      const { result } = plan(level);
+      expect(result.ways[0]?.latestDeparture).toBeCloseTo(result.deadline);
+      for (const way of result.ways) {
+        expect(way.latestDeparture).toBeLessThanOrEqual(result.deadline);
+      }
+    }
+  });
+
   it('lists distinct ways to the key connection stop', () => {
     const { result, graph } = plan('optimal');
     expect(result.ways).toHaveLength(2);
