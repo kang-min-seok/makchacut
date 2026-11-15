@@ -1,6 +1,10 @@
-import { cleanObservedLast, type ObservedStop } from '#stop-last/clean-observed';
+import { cleanObservedLast, type ObservedStop, type StopWeight } from '#stop-last/clean-observed';
 import { type Confidence, type LastTimeSource, lowerConfidence } from '#stop-last/confidence';
-import type { StopLastStop, TravelSpeeds } from '#stop-last/cumulative-seconds';
+import {
+  cumulativeSeconds,
+  type StopLastStop,
+  type TravelSpeeds,
+} from '#stop-last/cumulative-seconds';
 import { estimateFromSchedule } from '#stop-last/estimate-from-schedule';
 import { type DaySchedule, usableSchedule } from '#stop-last/schedule-rules';
 import { DAY_TYPES, type DayType } from '#time/day-type';
@@ -73,6 +77,16 @@ function contradictedByObservation(
   return latest < lastAtOrigin - OBSERVATION_GAP_MINUTES;
 }
 
+// 서울 정류장 seq → 계산 대상 노선의 누적 소요(ptts 또는 구간 유형별 속도). 관측 사이 보간 비율에 쓴다.
+function travelWeightOf(input: RouteStopLastInput, seoul: SeoulObservation): StopWeight {
+  const { seconds } = cumulativeSeconds(input.stops, input.speeds);
+  const bySeq = new Map(input.stops.map((stop, index) => [stop.seq, seconds[index]]));
+  return (seoulSeq) => {
+    const seq = seoul.seqMap.get(seoulSeq);
+    return seq === undefined ? undefined : bySeq.get(seq);
+  };
+}
+
 function rowsForDay(input: RouteStopLastInput, dayType: DayType): StopLastRow[] {
   const sourceDay = sourceDayOf(input, dayType);
   const borrowed = sourceDay !== dayType;
@@ -101,7 +115,12 @@ function rowsForDay(input: RouteStopLastInput, dayType: DayType): StopLastRow[] 
     const passing = new Set(input.stops.filter((s) => isPassingStop(s.name)).map((s) => s.seq));
     // 어느 정류장 막차도 기점 막차보다 이를 수 없다 — 서울 쪽 기점 막차가 더 이르면(4108 일 21:20) 계산 대상 노선의 기점 막차로
     const lowerBound = laterOf(input.seoul.lastAtOrigin[sourceDay] ?? null, schedule.lastAtOrigin);
-    const cleaned = cleanObservedLast(input.seoul.stops, observed, lowerBound);
+    const cleaned = cleanObservedLast(
+      input.seoul.stops,
+      observed,
+      lowerBound,
+      travelWeightOf(input, input.seoul),
+    );
     for (const [seoulSeq, value] of cleaned) {
       const seq = input.seoul.seqMap.get(seoulSeq);
       if (seq === undefined || passing.has(seq)) continue;
