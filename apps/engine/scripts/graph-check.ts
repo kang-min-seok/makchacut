@@ -2,17 +2,22 @@ import { existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { performance } from 'node:perf_hooks';
 import {
+  type AccessOptions,
+  accessStops,
+  arrivalTargets,
+  bestLabelAt,
   buildTransitGraph,
   type DayType,
   DEFAULT_MIN_TRANSFER_MINUTES,
-  homeTargets,
   indexGraph,
   type Journey,
-  meetupDepartures,
+  type LatLng,
   minutesToClock,
   modeOf,
   reconstructJourney,
+  type RaptorTarget,
   reverseRaptor,
+  type ReverseRaptorResult,
   SECONDS_PER_MINUTE,
   type TransitGraph,
   WALK_TIME_FACTORS,
@@ -55,6 +60,35 @@ const access = { maxWalkMinutes: options.maxWalkMinutes, walkTimeFactor };
 const ms = (start: number) => `${Math.round(performance.now() - start)}ms`;
 const mb = (bytes: number) => `${(bytes / BYTES_PER_MB).toFixed(1)}MB`;
 const clock = (minutes: number) => minutesToClock(minutes);
+
+// 집에 늦게 도착해도 되므로 진입점은 도착 제한이 없다(도보 시간은 반경·최대 도보로만 거른다)
+function homeTargets(graph: TransitGraph, home: LatLng, options: AccessOptions): RaptorTarget[] {
+  return arrivalTargets(accessStops(graph, home, options));
+}
+
+type MeetupDeparture = {
+  stop: number;
+  walkMinutes: number;
+  // 약속 장소에서 늦어도 이 시각에 나서야 한다 (도보·안전 여유 반영)
+  latestDeparture: number;
+};
+
+// 약속 장소 주변 정류장마다 L(s) − 도보 − 안전 여유. 늦은 순.
+function meetupDepartures(
+  graph: TransitGraph,
+  result: ReverseRaptorResult,
+  meetup: LatLng,
+  options: AccessOptions & { safetyMarginMinutes: number },
+): MeetupDeparture[] {
+  return accessStops(graph, meetup, options)
+    .flatMap((s) => {
+      const label = bestLabelAt(result, s.stop);
+      if (!label) return [];
+      const latestDeparture = label.value - s.walkMinutes - options.safetyMarginMinutes;
+      return [{ stop: s.stop, walkMinutes: s.walkMinutes, latestDeparture }];
+    })
+    .sort((a, b) => b.latestDeparture - a.latestDeparture);
+}
 
 function retainedBytes(): number {
   globalThis.gc?.();
