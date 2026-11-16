@@ -6,6 +6,7 @@ import {
   type TravelSpeeds,
 } from '#stop-last/cumulative-seconds';
 import { isPassingStop } from '#transit/passing-stop';
+import { SECONDS_PER_MINUTE } from '#time/units';
 
 export type ScheduleLast = {
   // 기점 막차·회차점 막차 (서비스 일자 기준 분)
@@ -19,7 +20,6 @@ export type StopLastValue = {
   confidence: Confidence;
 };
 
-const SECONDS_PER_MINUTE = 60;
 // 시간표 값 그대로인 기점·회차점
 const EXACT_CONFIDENCE: Confidence = 'high';
 // 기점 막차 + 누적을 이보다 더 줄여야 맞는 회차점 막차는 같은 차가 아니라 회차점에서 따로 출발하는 차다

@@ -3,6 +3,7 @@ import { stopsNear } from '#graph/stops-near';
 import type { TransitGraph } from '#graph/transit-graph';
 import { bestLabelAt } from '#raptor/journey';
 import type { RaptorTarget, ReverseRaptorResult } from '#raptor/reverse-raptor';
+import { SECONDS_PER_MINUTE } from '#time/units';
 
 // 집 진입점·약속 장소 출구: 좌표 반경 안 정류장과 도보 시간
 
@@ -17,7 +18,6 @@ export const WALK_TIME_FACTORS: Readonly<Record<WalkSpeed, number>> = {
 };
 
 export const ACCESS_RADIUS_METERS = 1000;
-const SECONDS_PER_MINUTE = 60;
 
 export type AccessOptions = {
   maxWalkMinutes: number;

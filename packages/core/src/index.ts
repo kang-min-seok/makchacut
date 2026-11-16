@@ -24,5 +24,6 @@ export * from '#stops/merge-stops';
 export * from '#time/day-type';
 export * from '#time/korea-date';
 export * from '#time/service-day';
+export * from '#time/units';
 export * from '#transit/passing-stop';
 export * from '#transit/stop-name';

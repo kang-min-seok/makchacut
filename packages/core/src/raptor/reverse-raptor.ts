@@ -6,6 +6,7 @@ import {
   timeIndex,
   type TransitGraph,
 } from '#graph/transit-graph';
+import { SECONDS_PER_MINUTE } from '#time/units';
 
 // 역방향 RAPTOR: 목적지(집 쪽 정류장)에서 거꾸로, 라운드(= 탄 횟수)마다 각 정류장의
 // "늦어도 몇 시에 여기 있어야 목적지에 갈 수 있는가"를 구한다.
@@ -42,7 +43,6 @@ export type ReverseRaptorOptions = {
 };
 
 export const DEFAULT_MIN_TRANSFER_MINUTES = 1;
-const SECONDS_PER_MINUTE = 60;
 const NONE = -1;
 
 export type RaptorRound = {

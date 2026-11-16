@@ -2,8 +2,7 @@ import type { TransitGraph } from '#graph/transit-graph';
 import type { AccessStop } from '#plan/access';
 import { type Journey, labelsAt, reconstructJourney } from '#raptor/journey';
 import type { ReverseRaptorResult } from '#raptor/reverse-raptor';
-
-const SECONDS_PER_MINUTE = 60;
+import { SECONDS_PER_MINUTE } from '#time/units';
 
 // 약속 장소 주변 정류장 하나에서 출발하는 경로 하나 (탄 횟수별)
 export type PlanCandidate = {

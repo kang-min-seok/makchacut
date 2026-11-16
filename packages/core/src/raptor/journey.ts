@@ -9,6 +9,7 @@ import {
 } from '#graph/transit-graph';
 import type { Confidence } from '#stop-last/confidence';
 import { alightLimitOf, type ReverseRaptorResult, transferSlackOf } from '#raptor/reverse-raptor';
+import { TIME_EPSILON } from '#time/units';
 
 export type RideLeg = {
   kind: 'ride';
@@ -46,9 +47,6 @@ export type Journey = {
 
 export type LabelKind = 'ride' | 'walk';
 export type Label = { round: number; kind: LabelKind; value: number };
-
-// 배차 기반 구간은 도착을 더하기·빼기로 다시 구해 부동소수 오차가 생길 수 있다
-const TIME_EPSILON = 1e-6;
 
 // 이 정류장의 라운드(탄 횟수)별 값. 라운드는 앞 라운드보다 나아진 값만 남기므로 탄 횟수와 마감의 파레토 집합이다.
 export function labelsAt(result: ReverseRaptorResult, stop: number): Label[] {

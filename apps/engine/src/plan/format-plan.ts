@@ -1,10 +1,12 @@
 import {
   type DayType,
   type JourneyLeg,
+  MINUTES_PER_DAY,
   modeOf,
   patternStopsBetween,
   type PlannedWay,
   type RideLeg,
+  SECONDS_PER_MINUTE,
   type TransitGraph,
   type TripPlan,
 } from '@makchacut/core';
@@ -20,9 +22,7 @@ import type {
 // 엔진 계산 결과(서비스 일자 기준 분, 정류장 번호)를 응답 형태(+09:00 ISO 시각, 이름)로 바꾼다
 
 const KST_OFFSET = '+09:00';
-const MINUTES_PER_DAY = 24 * 60;
 const MINUTES_PER_HOUR = 60;
-const SECONDS_PER_MINUTE = 60;
 const MEETUP_LABEL = '약속 장소';
 const HOME_LABEL = '집';
 

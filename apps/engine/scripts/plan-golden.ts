@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dayTypeOf } from '@makchacut/core';
+import { dayTypeOf, MINUTES_PER_DAY } from '@makchacut/core';
 import { searchKakaoAddress } from '@makchacut/data';
 import { createDb } from '@makchacut/db';
 import { type LatLng, LatLngSchema, type PlanResponse } from '@makchacut/shared';
@@ -19,7 +19,6 @@ const CASES_FILE = 'golden/cases.json';
 const HOMES_FILE = 'golden/homes.local.json';
 const DB_CLOSE_TIMEOUT_SECONDS = 5;
 const MINUTES_PER_HOUR = 60;
-const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
 // 04시 전은 전날 서비스 일자로 본다 (00:40 → 24:40)
 const SERVICE_DAY_CUTOFF_MINUTES = 4 * MINUTES_PER_HOUR;
 const CLOCK_PATTERN = /^\d{2}:\d{2}$/;

@@ -1,5 +1,6 @@
 import { hasCoordinates } from '#geo/distance';
 import { nearbyPairs } from '#geo/nearby-pairs';
+import { SECONDS_PER_MINUTE } from '#time/units';
 
 export type FootpathStop = {
   id: number;
@@ -21,7 +22,6 @@ const DETOUR_FACTOR = 1.3;
 const WALK_SPEED_KMH = 4.5;
 const METERS_PER_KM = 1000;
 const SECONDS_PER_HOUR = 3600;
-const SECONDS_PER_MINUTE = 60;
 // 같은 역 다른 호선 환승 기본값
 const DEFAULT_TRANSFER_MINUTES = 3;
 

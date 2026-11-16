@@ -13,6 +13,7 @@ import {
   modeOf,
   reconstructJourney,
   reverseRaptor,
+  SECONDS_PER_MINUTE,
   type TransitGraph,
   WALK_TIME_FACTORS,
 } from '@makchacut/core';
@@ -29,7 +30,6 @@ import { GRAPH_SCOPES, type GraphScope, loadGraphInput } from '#graph/stores/gra
 const ENV_FILE = '.env';
 const DAY_TYPES: readonly DayType[] = ['weekday', 'sat', 'sun'];
 const BYTES_PER_MB = 1024 * 1024;
-const SECONDS_PER_MINUTE = 60;
 const DB_CLOSE_TIMEOUT_SECONDS = 5;
 
 const { values, positionals: meetups } = parseArgs({

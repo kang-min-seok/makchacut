@@ -1,11 +1,10 @@
 import type { GraphIndex } from '#graph/graph-index';
 import { patternStopAt, timeIndex, type TransitGraph } from '#graph/transit-graph';
 import type { Journey, RideLeg } from '#raptor/journey';
+import { TIME_EPSILON } from '#time/units';
 
 // 핵심 연결: 경로의 막차(같은 노선의 한 대 늦은 차로는 그 하차 정류장까지 못 가는 시각 기반 구간) 중
 // 집에 가장 가까운 것 (판교 6003, 양재 8501처럼 귀가 노선 막차)
-
-const TIME_EPSILON = 1e-6;
 
 export type KeyConnection = {
   legIndex: number;
