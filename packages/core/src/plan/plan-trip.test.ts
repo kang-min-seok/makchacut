@@ -9,8 +9,9 @@ import type { TransitMode } from '#graph/transit-graph';
 import type { AccessStop } from '#plan/access';
 import type { DetourLevel } from '#plan/detour';
 import { searchHome } from '#plan/home-search';
-import { isLastRun } from '#plan/key-connection';
-import { planTrip, type TripPlanOptions } from '#plan/plan-trip';
+import { isLastRun } from '#plan/steps/anchor';
+import { planTrip } from '#plan/plan-trip';
+import type { TripPlanOptions } from '#plan/trip-plan';
 import type { RideLeg } from '#raptor/journey';
 import { toServiceMinutes } from '#time/service-day';
 
@@ -84,7 +85,7 @@ function plan(
     graph,
     index,
     homeAccess,
-    ...searchHome(graph, index, homeAccess, OPTIONS, detour),
+    homeSearch: searchHome(graph, index, homeAccess, OPTIONS, detour),
     meetupAccess,
     options: OPTIONS,
   });

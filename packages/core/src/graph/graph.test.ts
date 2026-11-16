@@ -1,0 +1,110 @@
+import { describe, expect, it } from 'vitest';
+import { buildTransitGraph, type GraphTripInput } from '#graph/build-graph';
+import { indexGraph } from '#graph/graph-index';
+import { patternStopsBetween } from '#graph/transit-graph';
+import { toServiceMinutes } from '#time/service-day';
+
+const A = 1;
+const B = 2;
+const C = 3;
+const D = 4;
+const HOME = 5;
+const STOP_IDS = [A, B, C, D, HOME];
+const STOPS = STOP_IDS.map((id) => ({ id, name: `S${id}`, lat: null, lng: null }));
+
+function m(clock: string): number {
+  const minutes = toServiceMinutes(clock);
+  if (minutes === undefined) throw new Error(clock);
+  return minutes;
+}
+
+// 정류장마다 간격(분)만큼 뒤에 도착·출발하는 운행
+function trip(
+  routeId: number,
+  stops: readonly number[],
+  start: string,
+  gapMinutes: number,
+): GraphTripInput {
+  return {
+    routeId,
+    routeName: `L${routeId}`,
+    mode: 'subway',
+    label: `${routeId}@${start}`,
+    headwayMinutes: null,
+    stopTimes: stops.map((stopId, i) => {
+      const time = m(start) + i * gapMinutes;
+      return { stopId, arrival: time, departure: time, source: 'timetable', confidence: 'high' };
+    }),
+  };
+}
+
+describe('buildTransitGraph', () => {
+  it('keeps the input stop order and makes times non-decreasing', () => {
+    const input = trip(10, [A, B, C], '22:00', 10);
+    const swapped = {
+      ...input,
+      stopTimes: input.stopTimes.map((st, i) =>
+        i === 1 ? { ...st, arrival: m('21:50'), departure: m('21:50') } : st,
+      ),
+    };
+    const { graph } = buildTransitGraph({ stops: STOPS, trips: [swapped], footpaths: [] });
+    expect(Array.from(graph.patternStops)).toEqual([0, 1, 2]);
+    expect(Array.from(graph.departures)).toEqual([m('22:00'), m('22:00'), m('22:20')]);
+  });
+
+  it('splits trips that overtake into separate patterns', () => {
+    const slow = trip(7, [A, B, C], '22:00', 20);
+    const fast = trip(7, [A, B, C], '22:05', 5);
+    const { graph } = buildTransitGraph({ stops: STOPS, trips: [slow, fast], footpaths: [] });
+    expect(graph.patternRouteIds.length).toBe(2);
+  });
+
+  it('drops unknown stops and trips with fewer than two stops', () => {
+    const report = buildTransitGraph({
+      stops: STOPS,
+      trips: [trip(8, [A, 999], '22:00', 5), trip(8, [A, B], '22:00', 5)],
+      footpaths: [{ fromStopId: A, toStopId: HOME, walkSeconds: 60 }],
+    });
+    expect(report.skippedTrips).toBe(1);
+    expect(report.droppedStopTimes).toBe(1);
+    // HOME은 어느 운행도 지나지 않아 그래프에 없다 → 도보 간선도 빠진다
+    expect(report.graph.footpathFrom.length).toBe(0);
+  });
+});
+
+describe('patternStopsBetween', () => {
+  const loop = buildTransitGraph({
+    stops: STOPS,
+    trips: [
+      {
+        routeId: 1,
+        routeName: '순환',
+        mode: 'bus',
+        label: '',
+        headwayMinutes: null,
+        stopTimes: [A, B, C, A, D].map((stopId, i) => ({
+          stopId,
+          arrival: 1300 + i * 5,
+          departure: 1300 + i * 5,
+          source: 'seoul_api' as const,
+          confidence: 'high' as const,
+        })),
+      },
+    ],
+    footpaths: [],
+  }).graph;
+  const at = (id: number) => indexGraph(loop).stopIndexById.get(id)!;
+  const ids = (stops: number[]) => stops.map((s) => loop.stopIds[s]);
+
+  it('lists every stop from boarding to alighting', () => {
+    expect(ids(patternStopsBetween(loop, 0, at(A), at(C)))).toEqual([A, B, C]);
+  });
+
+  it('uses the shortest span when the boarding stop appears twice', () => {
+    expect(ids(patternStopsBetween(loop, 0, at(A), at(D)))).toEqual([A, D]);
+  });
+
+  it('falls back to the two ends when the stops are not on the pattern', () => {
+    expect(ids(patternStopsBetween(loop, 0, at(D), at(A)))).toEqual([D, A]);
+  });
+});

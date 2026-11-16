@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildTransitGraph, indexGraph, type PlannedWay, type RideLeg } from '@makchacut/core';
 import { PlanResponseSchema } from '@makchacut/shared';
-import {
-  type FormatContext,
-  formatPlan,
-  formatWay,
-  PLAN_NOTES,
-  serviceMinutesToIso,
-} from '#plan/format-plan';
-import { LruCache } from '#plan/lru-cache';
+import { formatPlan, PLAN_NOTES } from '#plan/format-plan';
+import { type FormatContext, formatWay } from '#plan/format-way';
+import { serviceMinutesToIso } from '#plan/service-time-iso';
 
 const DATE = '2026-11-06';
 const HOME = { lat: 37.199, lng: 127.09 };
@@ -149,18 +144,5 @@ describe('formatPlan', () => {
       source: 'gbis_eta',
     });
     expect(response.notes).toEqual([PLAN_NOTES.estimated]);
-  });
-});
-
-describe('LruCache', () => {
-  it('evicts the least recently used entry', () => {
-    const cache = new LruCache<string, number>(2);
-    cache.set('a', 1);
-    cache.set('b', 2);
-    cache.get('a');
-    cache.set('c', 3);
-    expect(cache.get('b')).toBeUndefined();
-    expect(cache.get('a')).toBe(1);
-    expect(cache.size).toBe(2);
   });
 });

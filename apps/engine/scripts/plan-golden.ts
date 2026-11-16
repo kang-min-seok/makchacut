@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dayTypeOf } from '@makchacut/core';
+import { MINUTES_PER_DAY } from '@makchacut/core';
 import { searchKakaoAddress } from '@makchacut/data';
 import { createDb } from '@makchacut/db';
 import { type LatLng, LatLngSchema, type PlanResponse } from '@makchacut/shared';
 import { z } from 'zod';
-import { isHoliday } from '#jobs/stores/holiday-store';
 import { createDbGraphCache } from '#plan/db-graph-cache';
 import { createPlanner } from '#plan/planner';
+import { requestDayType } from '#plan/request-day-type';
 import { stationPoint } from '#plan/station-point';
 import { clockOf, planLines } from './plan-print';
 
@@ -19,7 +19,6 @@ const CASES_FILE = 'golden/cases.json';
 const HOMES_FILE = 'golden/homes.local.json';
 const DB_CLOSE_TIMEOUT_SECONDS = 5;
 const MINUTES_PER_HOUR = 60;
-const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
 // 04시 전은 전날 서비스 일자로 본다 (00:40 → 24:40)
 const SERVICE_DAY_CUTOFF_MINUTES = 4 * MINUTES_PER_HOUR;
 const CLOCK_PATTERN = /^\d{2}:\d{2}$/;
@@ -114,8 +113,7 @@ try {
   const planner = createPlanner({ db, graphs });
   for (const c of cases.filter((g) => only.size === 0 || only.has(g.id))) {
     const home = await homePoint(c.home);
-    const holidays = (await isHoliday(db, c.date)) ? new Set([c.date]) : new Set<string>();
-    const loaded = await graphs.get(dayTypeOf(c.date, holidays));
+    const loaded = await graphs.get(await requestDayType(db, c.date));
     const meetup = loaded && stationPoint(loaded.graph, c.meetup);
     if (!meetup) {
       console.log(`\n[FAIL] ${c.id}: 약속 역 '${c.meetup}'을 찾지 못함`);

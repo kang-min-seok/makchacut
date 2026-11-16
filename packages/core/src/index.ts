@@ -7,11 +7,22 @@ export * from '#graph/transit-graph';
 export * from '#plan/access';
 export * from '#plan/detour';
 export * from '#plan/home-search';
-export * from '#plan/key-connection';
-export * from '#plan/plan-candidates';
 export * from '#plan/plan-trip';
+export * from '#plan/steps/anchor';
+export * from '#plan/steps/detour-filter';
+export * from '#plan/steps/detour-option';
+export * from '#plan/steps/route-candidates';
+export * from '#plan/steps/ways-to-anchor';
+export * from '#plan/trip-plan';
 export * from '#raptor/journey';
+export * from '#raptor/labels';
 export * from '#raptor/reverse-raptor';
+export {
+  alightLimitOf,
+  type RaptorRound,
+  type TransferSlack,
+  transferSlackOf,
+} from '#raptor/round';
 export * from '#stop-last/align-stop-sequences';
 export * from '#stop-last/clean-observed';
 export * from '#stop-last/confidence';
@@ -24,5 +35,6 @@ export * from '#stops/merge-stops';
 export * from '#time/day-type';
 export * from '#time/korea-date';
 export * from '#time/service-day';
+export * from '#time/units';
 export * from '#transit/passing-stop';
 export * from '#transit/stop-name';

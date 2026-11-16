@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildTransitGraph, type GraphTripInput } from '#graph/build-graph';
 import { indexGraph } from '#graph/graph-index';
-import { homeTargets, meetupDepartures, WALK_TIME_FACTORS } from '#plan/access';
+import type { TransitGraph } from '#graph/transit-graph';
+import { accessStops, arrivalTargets, WALK_TIME_FACTORS } from '#plan/access';
+import { meetupJourneys } from '#plan/steps/route-candidates';
 import { reverseRaptor } from '#raptor/reverse-raptor';
 
 // 약속 장소 근처 역(150m, 600m), 집 근처 역(300m), 집에서 먼 역(3km)
@@ -42,6 +44,8 @@ function trip(from: number, to: number, depart: number): GraphTripInput {
 
 const OPTIONS = { maxWalkMinutes: 15, walkTimeFactor: WALK_TIME_FACTORS.normal };
 
+const homeTargets = (graph: TransitGraph) => arrivalTargets(accessStops(graph, HOME, OPTIONS));
+
 describe('access', () => {
   const { graph } = buildTransitGraph({
     stops: STOPS,
@@ -51,23 +55,20 @@ describe('access', () => {
   const index = indexGraph(graph);
 
   it('targets only stops within reach of home', () => {
-    const targets = homeTargets(graph, HOME, OPTIONS);
+    const targets = homeTargets(graph);
     expect(targets.map((t) => graph.stopIds[t.stop])).toEqual([3]);
     expect(targets[0]?.latestArrival).toBe(Infinity);
   });
 
   it('subtracts the walk and the safety margin at the meetup side', () => {
-    const result = reverseRaptor(graph, index, homeTargets(graph, HOME, OPTIONS), {
+    const result = reverseRaptor(graph, index, homeTargets(graph), {
       maxRides: 1,
       minTransferMinutes: 1,
       walkTimeFactor: 1,
     });
-    const departures = meetupDepartures(graph, result, MEETUP, {
-      ...OPTIONS,
-      safetyMarginMinutes: 5,
-    });
+    const departures = meetupJourneys(graph, result, accessStops(graph, MEETUP, OPTIONS), 5);
     // 먼역 1420 − 도보(600m × 1.3 ÷ 4.5km/h = 10.4분) − 5 = 1404.6
-    expect(graph.stopIds[departures[0]!.stop]).toBe(2);
+    expect(graph.stopIds[departures[0]!.journey.startStop]).toBe(2);
     expect(departures[0]!.latestDeparture).toBeCloseTo(1404.6, 1);
     expect(departures).toHaveLength(2);
   });
