@@ -145,22 +145,35 @@ function usedStopIndexes(
   return stops.filter((s) => used.has(s.id));
 }
 
-// 운행이 지나는 정류장만 그래프에 넣는다. 도보 간선은 양 끝이 모두 들어간 것만 남긴다.
-export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
-  const stops = usedStopIndexes(input.stops, input.trips);
-  const stopIndexById = new Map(stops.map((s, i) => [s.id, i]));
+type PreparedTrips = {
+  trips: PreparedTrip[];
+  skippedTrips: number;
+  droppedStopTimes: number;
+};
 
+function prepareTrips(
+  trips: readonly GraphTripInput[],
+  stopIndexById: ReadonlyMap<number, number>,
+): PreparedTrips {
   let skippedTrips = 0;
   let droppedStopTimes = 0;
   const prepared: PreparedTrip[] = [];
-  for (const trip of input.trips) {
+  for (const trip of trips) {
     const { stops: timed, dropped } = prepareTrip(trip, stopIndexById);
     droppedStopTimes += dropped;
     if (timed.length < MIN_TRIP_STOPS) skippedTrips += 1;
     else prepared.push({ input: trip, stops: timed });
   }
-  const patterns = groupPatterns(prepared);
+  return { trips: prepared, skippedTrips, droppedStopTimes };
+}
 
+// 패턴을 그래프의 타입 배열로 담는다. 도보 간선은 양 끝이 모두 그래프에 들어간 것만 남긴다.
+function packGraph(
+  stops: readonly GraphStopInput[],
+  stopIndexById: ReadonlyMap<number, number>,
+  patterns: readonly Pattern[],
+  inputFootpaths: readonly GraphFootpathInput[],
+): TransitGraph {
   const patternStopOffsets = new Int32Array(patterns.length + 1);
   const patternTripOffsets = new Int32Array(patterns.length + 1);
   const patternTimeOffsets = new Int32Array(patterns.length);
@@ -200,11 +213,11 @@ export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
     }
   });
 
-  const footpaths = input.footpaths.filter(
+  const footpaths = inputFootpaths.filter(
     (f) => stopIndexById.has(f.fromStopId) && stopIndexById.has(f.toStopId),
   );
 
-  const graph: TransitGraph = {
+  return {
     stopIds: Int32Array.from(stops, (s) => s.id),
     stopNames: stops.map((s) => s.name),
     stopLats: Float32Array.from(stops, (s) => s.lat ?? Number.NaN),
@@ -226,5 +239,14 @@ export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
     footpathTo: Int32Array.from(footpaths, (f) => stopIndexById.get(f.toStopId)!),
     footpathSeconds: Int32Array.from(footpaths, (f) => f.walkSeconds),
   };
+}
+
+// 운행이 지나는 정류장만 그래프에 넣는다: 운행 다듬기 → 패턴 묶기 → 타입 배열
+export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
+  const stops = usedStopIndexes(input.stops, input.trips);
+  const stopIndexById = new Map(stops.map((s, i) => [s.id, i]));
+  const { trips, skippedTrips, droppedStopTimes } = prepareTrips(input.trips, stopIndexById);
+  const patterns = groupPatterns(trips);
+  const graph = packGraph(stops, stopIndexById, patterns, input.footpaths);
   return { graph, skippedTrips, droppedStopTimes };
 }
