@@ -94,7 +94,7 @@ export function createPlanner({ db, graphs }: PlannerDeps): Planner {
       graph: loaded.graph,
       index: loaded.index,
       homeAccess,
-      ...homeSearchFor(loaded, homeAccess, options),
+      homeSearch: homeSearchFor(loaded, homeAccess, options),
       meetupAccess,
       options: {
         maxRides: options.maxTransfers + 1,
