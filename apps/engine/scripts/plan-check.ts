@@ -1,13 +1,12 @@
 import { existsSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { parseArgs } from 'node:util';
-import { dayTypeOf } from '@makchacut/core';
 import { searchKakaoAddress } from '@makchacut/data';
 import { createDb } from '@makchacut/db';
-import { isHoliday } from '#jobs/stores/holiday-store';
 import { createDbGraphCache } from '#plan/db-graph-cache';
 import { createGraphCache } from '#plan/graph-cache';
 import { createPlanner } from '#plan/planner';
+import { requestDayType } from '#plan/request-day-type';
 import { stationPoint } from '#plan/station-point';
 import { planLines } from './plan-print';
 
@@ -54,7 +53,7 @@ const db = createDb(databaseUrl);
 try {
   const graphs = source === 'snapshot' ? createGraphCache(db) : createDbGraphCache(db);
   const planner = createPlanner({ db, graphs });
-  const dayType = dayTypeOf(date, (await isHoliday(db, date)) ? new Set([date]) : new Set());
+  const dayType = await requestDayType(db, date);
   let start = performance.now();
   const loaded = await graphs.get(dayType);
   if (!loaded) throw new Error(`${dayType} 스냅샷이 없습니다 (compute graph-snapshot 먼저)`);
