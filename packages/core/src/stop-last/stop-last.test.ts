@@ -582,6 +582,85 @@ describe('cleanObservedLast', () => {
   });
 });
 
+// 8501 평일 모양: 도심 정류장 뒤에 고속도로 30km가 오면 순번 비례로는 도심 정류장 막차가 7분씩 늦어진다
+describe('cleanObservedLast interpolation by travel share (8501)', () => {
+  const LNG = 127.03;
+  const located = [
+    { seq: 1, name: '뱅뱅사거리(중)', lat: 37.4889, lng: LNG },
+    { seq: 2, name: '양재역.서초문화예술회관(중)', lat: 37.4835, lng: LNG },
+    { seq: 3, name: '말죽거리공원사거리(중)', lat: 37.479, lng: LNG },
+    { seq: 4, name: '매헌시민의숲.양재꽃시장', lat: 37.4709, lng: LNG },
+    { seq: 5, name: '경부고속도로(미정차)', lat: 37.33, lng: LNG },
+    { seq: 6, name: '이마트.한림대병원', lat: 37.2, lng: LNG },
+    { seq: 7, name: '예당마을.롯데캐슬(중)', lat: 37.195, lng: LNG },
+  ];
+  const observed = new Map([
+    [1, at('00:59')],
+    [7, at('01:27')],
+  ]);
+
+  it('keeps city stops near the earlier observation by straight-line distance', () => {
+    const cleaned = cleanObservedLast(located, observed, null);
+    expect(cleaned.get(4)?.lastMinutes).toBeLessThan(at('01:02'));
+    expect(cleaned.get(6)?.lastMinutes).toBeGreaterThan(at('01:25'));
+  });
+
+  it('uses the given travel weights before straight-line distance', () => {
+    const elapsedMinutes = new Map([
+      [1, 0],
+      [2, 3],
+      [3, 5],
+      [4, 8],
+      [5, 18],
+      [6, 26],
+      [7, 28],
+    ]);
+    const cleaned = cleanObservedLast(located, observed, null, (seq) => elapsedMinutes.get(seq));
+    expect(cleaned.get(4)).toEqual({ lastMinutes: at('01:07'), interpolated: true });
+    expect(cleaned.get(6)?.lastMinutes).toBe(at('01:25'));
+  });
+
+  it('falls back to distance when the weights are not monotonic over the span', () => {
+    const cleaned = cleanObservedLast(located, observed, null, (seq) => (seq === 4 ? 0 : seq));
+    expect(cleaned.get(4)?.lastMinutes).toBeLessThan(at('01:02'));
+  });
+
+  it('weights by the route ptts in computeRouteStopLast', () => {
+    const gbisStops = [
+      stop(1, '강남역우리은행', 'outbound', 0),
+      stop(2, '뱅뱅사거리(중)', 'outbound', 6 * 60),
+      stop(3, '양재역.서초문화예술회관(중)', 'outbound', 3 * 60),
+      stop(4, '말죽거리공원사거리(중)', 'outbound', 2 * 60),
+      stop(5, '매헌시민의숲.양재꽃시장', 'outbound', 3 * 60),
+      stop(6, '예당마을.롯데캐슬(중)', 'outbound', 20 * 60),
+    ];
+    const seoulStops = gbisStops.map(({ seq, name }) => ({ seq, name, lat: null, lng: null }));
+    const rows = computeRouteStopLast({
+      routeName: '8501',
+      stops: gbisStops,
+      schedules: { weekday: daySchedule(at('00:53'), null) },
+      holidayFromSunday: false,
+      seoul: {
+        stops: seoulStops,
+        observed: {
+          weekday: new Map([
+            [1, at('00:53')],
+            [2, at('00:59')],
+            [6, at('01:27')],
+          ]),
+        },
+        lastAtOrigin: { weekday: at('00:53') },
+        seqMap: new Map(gbisStops.map(({ seq }) => [seq, seq])),
+      },
+    });
+    expect(rowAt(rows, 5, 'weekday')).toMatchObject({
+      lastMinutes: at('01:07'),
+      source: 'seoul_api',
+      confidence: 'medium',
+    });
+  });
+});
+
 describe('cumulativeSeconds', () => {
   it('estimates by segment type when ptts is missing: passing 80km/h, city 25km/h', () => {
     const { source, seconds } = cumulativeSeconds([

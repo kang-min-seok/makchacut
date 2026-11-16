@@ -75,6 +75,9 @@ function asArray(value: unknown): GbisApiBody[] {
 const text = (value: unknown): string =>
   value === undefined || value === null ? '' : String(value);
 
+// Number(null)·Number('')는 0이 되어 빈 구간 값이 0초·0m로 쓰인다. 빈 값은 NaN으로 두어 정렬 단계에서 거부되게 한다.
+const measure = (value: unknown): number => (value === null || value === '' ? NaN : Number(value));
+
 export async function searchGbisRoutes(key: string, keyword: string): Promise<GbisRoute[]> {
   const body = await callApi('busrouteservice/v2/getBusRouteListv2', key, { keyword });
   return asArray(body.busRouteList).map((item) => ({
@@ -141,8 +144,8 @@ export async function fetchGbisWebSegments(routeId: string): Promise<GbisWebSegm
   return asArray(json.result?.estimateTime).map((item) => ({
     seq: Number(item.staOrder),
     stationId: text(item.stationId),
-    ptts: Number(item.ptts),
-    lengthMeters: Number(item.length),
+    ptts: measure(item.ptts),
+    lengthMeters: measure(item.length),
   }));
 }
 
