@@ -9,6 +9,8 @@ import {
   buildTransitGraph,
   type DayType,
   DEFAULT_MIN_TRANSFER_MINUTES,
+  type GraphBuildInput,
+  type GraphBuildReport,
   indexGraph,
   type Journey,
   type LatLng,
@@ -36,6 +38,7 @@ const ENV_FILE = '.env';
 const DAY_TYPES: readonly DayType[] = ['weekday', 'sat', 'sun'];
 const BYTES_PER_MB = 1024 * 1024;
 const DB_CLOSE_TIMEOUT_SECONDS = 5;
+const TOP_ADJUSTED_ROUTES = 10;
 
 const { values, positionals: meetups } = parseArgs({
   args: process.argv.slice(2).filter((arg) => arg !== '--'),
@@ -112,6 +115,16 @@ function describeJourney(graph: TransitGraph, journey: Journey): string[] {
   });
 }
 
+// 시각을 고친 정차가 많은 노선 (노선 id → 이름은 입력 운행에서)
+function adjustedRoutesLine(input: GraphBuildInput, report: GraphBuildReport): string {
+  const names = new Map(input.trips.map((t) => [t.routeId, t.routeName]));
+  const top = [...report.adjustedStopTimesByRoute]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, TOP_ADJUSTED_ROUTES)
+    .map(([routeId, count]) => `${names.get(routeId) ?? routeId} ${count}`);
+  return `시각 고친 정차 ${report.adjustedStopTimes} — 많은 노선: ${top.join(', ')}`;
+}
+
 function graphSizeLine(graph: TransitGraph): string {
   const trips = graph.patternTripOffsets.at(-1) ?? 0;
   return `정류장 ${graph.stopIds.length}, 패턴 ${graph.patternRouteIds.length}, 운행 ${trips}, 시각 ${graph.arrivals.length}, 도보 ${graph.footpathFrom.length}`;
@@ -135,6 +148,7 @@ async function checkDayType(
   console.log(
     `빌드 ${ms(start)} — ${graphSizeLine(report.graph)} (버린 운행 ${report.skippedTrips}, 버린 정차 ${report.droppedStopTimes})`,
   );
+  console.log(adjustedRoutesLine(input, report));
   start = performance.now();
   const snapshot = encodeGraphSnapshot(report.graph);
   console.log(`직렬화 ${ms(start)} — gzip ${mb(snapshot.length)}`);
