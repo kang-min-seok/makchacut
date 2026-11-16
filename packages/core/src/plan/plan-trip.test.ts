@@ -181,6 +181,19 @@ describe('planTrip main route', () => {
     expect(result.later).toBeUndefined();
   });
 
+  it('does not announce a later route that leaves less than a minute later', () => {
+    // 41을 M에서 30초 걸어간 F에서 23:31에 타면 마감 23:23.5, 직행보다 30초 늦다
+    const trips = [
+      DIRECT,
+      trip(41, [F, P], '23:31', 9, 'bus'),
+      trip(42, [P, HOME], '23:42', 20, 'bus'),
+    ];
+    const walk = { fromStopId: M, toStopId: F, walkSeconds: 30 };
+    const { result, routeOf } = plan('any', trips, [walk, { ...walk, fromStopId: F, toStopId: M }]);
+    expect(result.anchor && routeOf(result.anchor)).toBe(40);
+    expect(result.later).toBeUndefined();
+  });
+
   it('keeps the latest route when ride counts are equal', () => {
     const { result, routeOf } = plan('any', [DIRECT, trip(43, [M, HOME], '23:31', 30, 'bus')]);
     expect(result.deadline).toBeCloseTo(m('23:24'));
