@@ -1,7 +1,9 @@
 import type { RouteCandidate } from '#plan/steps/route-candidates';
+import { toWay } from '#plan/steps/ways-to-anchor';
 import type { LaterWay, TripPlanInput } from '#plan/trip-plan';
+import { TIME_EPSILON } from '#time/units';
 
-// 대표보다 늦게 나설 수 있는 경로(환승이 더 많음)
+// 대표보다 늦게 나설 수 있는 경로(환승이 더 많음): 우회 판정을 통과한 가장 늦은 후보가 마감보다 늦고 더 타면 그것
 
 export type LaterWayStep = (
   input: TripPlanInput,
@@ -10,5 +12,9 @@ export type LaterWayStep = (
   deadline: number,
 ) => LaterWay | undefined;
 
-// shortcut: 대표가 늘 가장 늦은 후보라 아직 없다, 단순한 경로 우선(계획 7)에서 채운다
-export const laterWay: LaterWayStep = () => undefined;
+export const laterWay: LaterWayStep = (_input, layer, main, deadline) => {
+  const latest = layer[0]!;
+  const extraRides = latest.journey.rides - main.journey.rides;
+  if (extraRides <= 0 || latest.latestDeparture <= deadline + TIME_EPSILON) return undefined;
+  return { way: toWay(latest, latest.journey.legs, latest.homeWalkMinutes), extraRides };
+};
