@@ -67,6 +67,10 @@ const [lastTimes, stations, webSegments] = await Promise.all([
 ]);
 
 const pttsBySeq = new Map(webSegments.map((s) => [s.seq, s.ptts]));
+// 엔진(alignGbisSegments)처럼 ptts가 하나라도 숫자가 아니면 노선 전체를 거리 추정으로 본다
+const usePtts = webSegments.length > 0 && webSegments.every((s) => Number.isFinite(s.ptts));
+if (webSegments.length > 0 && !usePtts)
+  console.warn('GBIS 웹 ptts에 빈 값이 있어 거리 추정만 출력');
 const turnIndex = stations.findIndex((s) => s.isTurn);
 
 console.log(`# ${route.routeName} (${route.routeTypeName}, routeId ${route.routeId})`);
@@ -100,13 +104,13 @@ stations.forEach((station, index) => {
   const pttsMinutes = pttsSeconds / 60;
   const distanceMinutes = (meters / 1000 / NIGHT_SPEED_KMH) * 60;
   const base = afterTurn ? lastTimes.downLast : lastTimes.upLast;
-  const offset = webSegments.length > 0 ? pttsMinutes : distanceMinutes;
+  const offset = usePtts ? pttsMinutes : distanceMinutes;
   const clocks = DAY_TYPES.map((day) => {
     const start = toServiceMinutes(base[day]);
     return start === undefined ? '-' : minutesToClock(start + offset);
   });
   const label = station.isTurn ? `**${station.stationName}** (회차)` : station.stationName;
   console.log(
-    `| ${station.seq} | ${label} | ${afterTurn ? '회차 후' : '회차 전'} | ${webSegments.length > 0 ? pttsMinutes.toFixed(0) : '-'} | ${distanceMinutes.toFixed(0)} | ${clocks.join(' | ')} |`,
+    `| ${station.seq} | ${label} | ${afterTurn ? '회차 후' : '회차 전'} | ${usePtts ? pttsMinutes.toFixed(0) : '-'} | ${distanceMinutes.toFixed(0)} | ${clocks.join(' | ')} |`,
   );
 });
