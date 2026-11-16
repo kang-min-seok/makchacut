@@ -47,10 +47,16 @@ describe('buildTransitGraph', () => {
         i === 1 ? { ...st, arrival: m('21:50'), departure: m('21:50') } : st,
       ),
     };
-    const { graph } = buildTransitGraph({ stops: STOPS, trips: [swapped], footpaths: [] });
+    const { graph, adjustedStopTimes, adjustedStopTimesByRoute } = buildTransitGraph({
+      stops: STOPS,
+      trips: [swapped],
+      footpaths: [],
+    });
     expect(Array.from(graph.patternStops)).toEqual([0, 1, 2]);
     expect(Array.from(graph.departures)).toEqual([m('21:50'), m('21:50'), m('22:20')]);
     expect(Array.from(graph.arrivals)).toEqual([m('22:00'), m('22:00'), m('22:20')]);
+    expect(adjustedStopTimes).toBe(2);
+    expect(adjustedStopTimesByRoute.get(10)).toBe(2);
   });
 
   it('spreads a segment that is too short for its distance by the minimum travel time', () => {
@@ -101,9 +107,14 @@ describe('buildTransitGraph', () => {
         },
       ],
     };
-    const { graph } = buildTransitGraph({ stops: near, trips: [subway], footpaths: [] });
+    const { graph, adjustedStopTimes } = buildTransitGraph({
+      stops: near,
+      trips: [subway],
+      footpaths: [],
+    });
     expect(Array.from(graph.arrivals)).toEqual(subway.stopTimes.map((st) => st.arrival));
     expect(Array.from(graph.departures)).toEqual(subway.stopTimes.map((st) => st.departure));
+    expect(adjustedStopTimes).toBe(0);
   });
 
   it('splits trips that overtake into separate patterns', () => {
