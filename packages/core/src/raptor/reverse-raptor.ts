@@ -36,6 +36,8 @@ export type ReverseRaptorOptions = {
   targetTransferMinutes?: number;
   // 정류장별 최대 소요(분): 그 정류장 값에서 목적지 도착까지가 이보다 길면 라벨을 버린다 (우회 제외)
   maxTravelMinutes?: Float64Array;
+  // 이 노선(route id)은 타지 않는다 (다른 막차 찾기)
+  excludedRoutes?: ReadonlySet<number>;
 };
 
 export const DEFAULT_MIN_TRANSFER_MINUTES = 1;
@@ -59,14 +61,19 @@ function scanPattern(
   }
 }
 
-// 표시된 정류장을 지나는 패턴마다, 표시된 정류장 중 가장 뒤 위치부터 거꾸로 훑는다
-function patternsToScan(state: SearchState, marked: readonly number[]): Map<number, number> {
-  const { index } = state;
+// 표시된 정류장을 지나는 패턴마다(제외 노선 빼고), 표시된 정류장 중 가장 뒤 위치부터 거꾸로 훑는다
+function patternsToScan(
+  state: SearchState,
+  marked: readonly number[],
+  excludedRoutes: ReadonlySet<number> | undefined,
+): Map<number, number> {
+  const { graph, index } = state;
   const starts = new Map<number, number>();
   for (const stop of marked) {
     const end = index.stopPatternOffsets[stop + 1]!;
     for (let i = index.stopPatternOffsets[stop]!; i < end; i += 1) {
       const pattern = index.stopPatterns[i]!;
+      if (excludedRoutes?.has(graph.patternRouteIds[pattern]!)) continue;
       const position = index.stopPatternPositions[i]!;
       if (position > (starts.get(pattern) ?? NONE)) starts.set(pattern, position);
     }
@@ -115,7 +122,7 @@ export function reverseRaptor(
   ) {
     const round = createRound(size);
     const rode = new Set<number>();
-    for (const [pattern, start] of patternsToScan(state, marked)) {
+    for (const [pattern, start] of patternsToScan(state, marked, options.excludedRoutes)) {
       scanPattern(state, round, pattern, start, rode);
     }
     const walked = relaxFootpaths(state, round, roundNumber, rode);
