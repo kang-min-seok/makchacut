@@ -18,7 +18,11 @@ const HOME = 5;
 const X = 6;
 const P = 7;
 const Q = 8;
-const STOP_IDS = [A, B, C, D, HOME, X, P, Q];
+// 집 진입점: 이름의 숫자 = 집까지 도보(분)
+const E2 = 9;
+const E7 = 10;
+const E15 = 11;
+const STOP_IDS = [A, B, C, D, HOME, X, P, Q, E2, E7, E15];
 const STOPS = STOP_IDS.map((id) => ({ id, name: `S${id}`, lat: null, lng: null }));
 
 const OPTIONS: ReverseRaptorOptions = { maxRides: 3, minTransferMinutes: 1, walkTimeFactor: 1 };
@@ -50,14 +54,25 @@ function trip(
   };
 }
 
-function search(trips: GraphTripInput[], footpaths: GraphFootpathInput[] = [], options = OPTIONS) {
+type HomeEntry = { stopId: number; walkMinutes: number };
+
+function search(
+  trips: GraphTripInput[],
+  footpaths: GraphFootpathInput[] = [],
+  options = OPTIONS,
+  entries: readonly HomeEntry[] = [{ stopId: HOME, walkMinutes: 0 }],
+) {
   const { graph } = buildTransitGraph({ stops: STOPS, trips, footpaths });
   const index = indexGraph(graph);
-  const home = index.stopIndexById.get(HOME)!;
-  const result = reverseRaptor(graph, index, [{ stop: home, latestArrival: Infinity }], options);
-  const journeyFrom = (stopId: number) =>
-    reconstructJourney(graph, result, index.stopIndexById.get(stopId)!);
-  return { graph, journeyFrom };
+  const stop = (stopId: number) => index.stopIndexById.get(stopId)!;
+  const targets = entries.map((e) => ({
+    stop: stop(e.stopId),
+    latestArrival: Infinity,
+    finishMinutes: e.walkMinutes,
+  }));
+  const result = reverseRaptor(graph, index, targets, options);
+  const journeyFrom = (stopId: number) => reconstructJourney(graph, result, stop(stopId));
+  return { graph, journeyFrom, stop };
 }
 
 const LINE_1 = [A, B, C];
@@ -167,5 +182,29 @@ describe('walk time factor', () => {
     expect(search(trips, footpaths).journeyFrom(D)?.latestDeparture).toBe(m('22:31'));
     const slow = search(trips, footpaths, { ...OPTIONS, walkTimeFactor: 1.25 });
     expect(slow.journeyFrom(D)?.latestDeparture).toBe(m('22:30'));
+  });
+});
+
+describe('home entries', () => {
+  const ENTRIES = [
+    { stopId: E7, walkMinutes: 7 },
+    { stopId: E2, walkMinutes: 2 },
+    { stopId: E15, walkMinutes: 15 },
+  ];
+  const ENTRY_WALK_SECONDS = 60;
+  // 진입점끼리는 서로 걸어서 1분
+  const ENTRY_FOOTPATHS = ENTRIES.flatMap((from) =>
+    ENTRIES.filter((to) => to !== from).map((to) => ({
+      fromStopId: from.stopId,
+      toStopId: to.stopId,
+      walkSeconds: ENTRY_WALK_SECONDS,
+    })),
+  );
+
+  it('alights where the arrival plus the walk home is earliest', () => {
+    // E7 23:03(+7) → E2 23:06(+2) → E15 23:09(+15): E2에서 내리면 23:08 도착
+    const trips = [trip(10, [A, E7, E2, E15], '23:00', 3)];
+    const { journeyFrom, stop } = search(trips, ENTRY_FOOTPATHS, OPTIONS, ENTRIES);
+    expect(journeyFrom(A)?.targetStop).toBe(stop(E2));
   });
 });
