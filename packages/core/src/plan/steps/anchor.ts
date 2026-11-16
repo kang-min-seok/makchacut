@@ -3,10 +3,10 @@ import { patternStopAt, timeIndex, type TransitGraph } from '#graph/transit-grap
 import type { Journey, RideLeg } from '#raptor/journey';
 import { TIME_EPSILON } from '#time/units';
 
-// 핵심 연결: 경로의 막차(같은 노선의 한 대 늦은 차로는 그 하차 정류장까지 못 가는 시각 기반 구간) 중
+// 3단계 핵심 연결(anchor): 경로의 막차(같은 노선의 한 대 늦은 차로는 그 하차 정류장까지 못 가는 시각 기반 구간) 중
 // 집에 가장 가까운 것 (판교 6003, 양재 8501처럼 귀가 노선 막차)
 
-export type KeyConnection = {
+export type Anchor = {
   legIndex: number;
   leg: RideLeg;
 };
@@ -41,11 +41,11 @@ export function isLastRun(graph: TransitGraph, index: GraphIndex, leg: RideLeg):
   return leg.headwayMinutes === null && !hasLaterTrip(graph, index, leg);
 }
 
-export function findKeyConnection(
+export function findAnchor(
   graph: TransitGraph,
   index: GraphIndex,
   journey: Journey,
-): KeyConnection | undefined {
+): Anchor | undefined {
   for (let legIndex = journey.legs.length - 1; legIndex >= 0; legIndex -= 1) {
     const leg = journey.legs[legIndex]!;
     if (leg.kind === 'ride' && isLastRun(graph, index, leg)) return { legIndex, leg };

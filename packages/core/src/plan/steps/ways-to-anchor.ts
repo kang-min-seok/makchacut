@@ -1,5 +1,5 @@
 import type { TransitGraph } from '#graph/transit-graph';
-import type { KeyConnection } from '#plan/key-connection';
+import type { Anchor } from '#plan/steps/anchor';
 import {
   type MeetupJourney,
   meetupJourneys,
@@ -51,15 +51,15 @@ export function distinctWays(
 export function waysToAnchor(
   input: TripPlanInput,
   main: RouteCandidate,
-  key: KeyConnection,
+  anchor: Anchor,
 ): PlannedWay[] {
   const { graph, index, meetupAccess, options } = input;
-  const tail = main.journey.legs.slice(key.legIndex);
+  const tail = main.journey.legs.slice(anchor.legIndex);
   const tailRides = tail.filter((leg) => leg.kind === 'ride').length;
   const result = reverseRaptor(
     graph,
     index,
-    [{ stop: key.leg.fromStop, latestArrival: key.leg.depart }],
+    [{ stop: anchor.leg.fromStop, latestArrival: anchor.leg.depart }],
     {
       maxRides: Math.max(0, options.maxRides - tailRides),
       minTransferMinutes: options.minTransferMinutes,
