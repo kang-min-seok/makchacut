@@ -8,6 +8,8 @@
 | ------------------------ | ------------------------------------------------------------ |
 | `apps/web`               | Next.js App Router 웹 (Vercel). `/api/plan`이 엔진을 프록시  |
 | `apps/engine`            | Hono 엔진 (Vercel Function, 서울). 경로 계산, 이후 수집·로거 |
+| `packages/core`          | 순수 계산: 막차 추정, 탐색 그래프, 역방향 RAPTOR, 귀가 계획  |
+| `packages/data`          | 외부 API 클라이언트(공공 데이터·카카오)와 응답 정규화        |
 | `packages/shared`        | 웹·엔진 공용 zod 스키마와 상수                               |
 | `packages/db`            | Drizzle 스키마·마이그레이션 (Supabase Postgres)              |
 | `packages/eslint-config` | 공용 ESLint 규칙                                             |
