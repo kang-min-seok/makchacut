@@ -3,6 +3,7 @@ import type { TransitGraph } from '#graph/transit-graph';
 import type { AccessStop } from '#plan/access';
 import type { HomeSearch } from '#plan/home-search';
 import type { JourneyLeg, RideLeg } from '#raptor/journey';
+import type { ReverseRaptorResult } from '#raptor/reverse-raptor';
 
 export type TripPlanOptions = {
   maxRides: number;
@@ -19,6 +20,8 @@ export type TripPlanInput = {
   homeSearch: HomeSearch;
   meetupAccess: readonly AccessStop[];
   options: TripPlanOptions;
+  // 이 노선들을 빼고 다시 한 집 쪽 탐색 (다른 막차 찾기, 엔진이 캐시한다). 없으면 다른 막차를 찾지 않는다.
+  searchExcluding?: (excluded: ReadonlySet<number>) => ReverseRaptorResult;
 };
 
 export type PlannedWay = {
