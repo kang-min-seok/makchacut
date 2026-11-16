@@ -59,12 +59,28 @@ export const DetourSchema = z.object({
   extraMinutes: z.number().int().nonnegative(),
 });
 
+// 환승을 더 하면 출발 마감보다 늦게 나설 수 있는 경로
+export const LaterSchema = z.object({
+  latestDeparture: OffsetDateTimeSchema,
+  extraTransfers: z.number().int().positive(),
+  way: WaySchema,
+});
+
+// 대표가 아닌 다른 막차. way의 isAnchor는 이 막차 구간에 붙는다.
+export const OtherAnchorSchema = AnchorSchema.extend({
+  latestDeparture: OffsetDateTimeSchema,
+  way: WaySchema,
+});
+
 export const PlanResponseSchema = z.object({
   deadline: OffsetDateTimeSchema,
   dayType: z.enum(PLAN_DAY_TYPES),
   anchor: AnchorSchema.nullable(),
   ways: z.array(WaySchema),
   detour: DetourSchema.nullable(),
+  later: LaterSchema.nullable(),
+  // 출발 마감 늦은 순, 대표 제외
+  otherAnchors: z.array(OtherAnchorSchema),
   notes: z.array(z.string()),
 });
 
@@ -76,4 +92,6 @@ export type AnchorSource = (typeof ANCHOR_SOURCES)[number];
 export type AnchorConfidence = (typeof ANCHOR_CONFIDENCES)[number];
 export type PlanDayType = (typeof PLAN_DAY_TYPES)[number];
 export type PlanWay = z.infer<typeof WaySchema>;
+export type PlanLater = z.infer<typeof LaterSchema>;
+export type PlanOtherAnchor = z.infer<typeof OtherAnchorSchema>;
 export type PlanResponse = z.infer<typeof PlanResponseSchema>;

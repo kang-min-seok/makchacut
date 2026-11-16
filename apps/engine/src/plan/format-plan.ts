@@ -1,5 +1,18 @@
-import { type DayType, type RideLeg, type TransitGraph, type TripPlan } from '@makchacut/core';
-import type { PlanAnchor, PlanRequest, PlanResponse } from '@makchacut/shared';
+import {
+  type DayType,
+  type LaterWay,
+  type OtherAnchor,
+  type RideLeg,
+  type TransitGraph,
+  type TripPlan,
+} from '@makchacut/core';
+import type {
+  PlanAnchor,
+  PlanLater,
+  PlanOtherAnchor,
+  PlanRequest,
+  PlanResponse,
+} from '@makchacut/shared';
 import { type FormatContext, formatWay, rideTimeKind } from '#plan/format-way';
 import { serviceMinutesToIso } from '#plan/service-time-iso';
 
@@ -18,6 +31,21 @@ function formatAnchor(graph: TransitGraph, date: string, leg: RideLeg): PlanAnch
     timeKind: rideTimeKind(leg),
     source: leg.timeSource,
     confidence: leg.confidence,
+  };
+}
+
+function formatLater(context: FormatContext, later: LaterWay): PlanLater {
+  const way = formatWay(context, later.way);
+  return { latestDeparture: way.latestDeparture, extraTransfers: later.extraRides, way };
+}
+
+// 다른 막차의 경로는 그 막차 구간을 핵심 연결로 표시한다
+function formatOtherAnchor(context: FormatContext, other: OtherAnchor): PlanOtherAnchor {
+  const { graph, date } = context;
+  return {
+    ...formatAnchor(graph, date, other.anchor),
+    latestDeparture: serviceMinutesToIso(date, other.deadline, Math.floor),
+    way: formatWay({ ...context, anchor: other.anchor }, other.way),
   };
 }
 
@@ -46,6 +74,8 @@ export function formatPlan(
           extraMinutes: plan.detour.extraMinutes,
         }
       : null,
+    later: plan.later ? formatLater(context, plan.later) : null,
+    otherAnchors: plan.otherAnchors.map((other) => formatOtherAnchor(context, other)),
     notes,
   };
 }

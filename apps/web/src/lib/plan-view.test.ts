@@ -69,6 +69,8 @@ const planWith = (ways: PlanWay[]): PlanResponse => ({
   },
   ways,
   detour: null,
+  later: null,
+  otherAnchors: [],
   notes: [],
 });
 

@@ -59,6 +59,8 @@ export function createDummyPlan(request: PlanRequest): PlanResponse {
       },
     ],
     detour: null,
+    later: null,
+    otherAnchors: [],
     notes: ['dummy-response'],
   };
 }
