@@ -1,6 +1,6 @@
 import type { RaptorRound } from '#raptor/round';
 import { improves, type SearchState, withinTravel } from '#raptor/search-state';
-import { SECONDS_PER_MINUTE } from '#time/units';
+import { SECONDS_PER_MINUTE, TIME_EPSILON } from '#time/units';
 
 // 이번 라운드에 정해진 walk 값의 비교용 도착 (앞 라운드 값이면 -Infinity — 같은 값이면 바꾸지 않는다)
 function currentArrival(
@@ -31,6 +31,7 @@ export function relaxFootpaths(
       const walkMinutes =
         (graph.footpathSeconds[footpath]! * state.walkTimeFactor) / SECONDS_PER_MINUTE;
       const candidate = value - walkMinutes;
+      if (candidate < bestWalk[from]! - TIME_EPSILON) continue;
       // 라운드 0은 목적지까지 걸어 가므로 소요가 도보 + 목적지 오프셋으로 정해진다
       const offset = walkMinutes + state.targetRideOffset[to]!;
       const finish = round.rideFinish[to]!;
