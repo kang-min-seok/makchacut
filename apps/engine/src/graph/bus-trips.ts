@@ -49,9 +49,14 @@ function toTrip(rows: readonly BusStopLastRow[]): GraphTripInput {
   };
 }
 
-// 노선별(순번순) 정류장 막차를 회차 전·후 두 막차 운행으로 나눈다.
-// 회차점(마지막 회차 전 정류장)은 회차 후 운행의 첫 정류장으로도 넣어 거기서 탈 수 있게 한다.
-// 회차 전 막차가 회차점에 늦게 닿아도 회차 후 시각이 밀리지 않게 하려는 것(회차점 통과 승차는 같은 정류장 환승이 된다).
+// 회차 전 정류장 막차가 모두 회차점(마지막 회차 전 정류장) 막차 이하면 같은 차가 회차점을 지나 계속 가는 것이다
+function runsThroughTurn(outbound: readonly BusStopLastRow[], turn: BusStopLastRow): boolean {
+  return outbound.every((r) => r.lastMinutes <= turn.lastMinutes);
+}
+
+// 노선별(순번순) 정류장 막차를 막차 운행으로 만든다. 회차 전 막차가 회차점을 지나 계속 가면 한 운행이다.
+// 아니면 회차 전·후 두 운행으로 나누고 회차점을 회차 후 운행의 첫 정류장으로도 넣는다 —
+// 회차 전 막차가 회차점에 늦게 닿아도 회차 후 시각이 밀리지 않게 하려는 것.
 export function busLastRunTrips(rows: readonly BusStopLastRow[]): GraphTripInput[] {
   const byRoute = new Map<number, BusStopLastRow[]>();
   for (const row of rows) {
@@ -65,6 +70,10 @@ export function busLastRunTrips(rows: readonly BusStopLastRow[]): GraphTripInput
     const outbound = sorted.filter((r) => r.direction === 'outbound');
     const inbound = sorted.filter((r) => r.direction === 'inbound');
     const turn = outbound.at(-1);
+    if (turn !== undefined && inbound.length > 0 && runsThroughTurn(outbound, turn)) {
+      trips.push(toTrip([...outbound, ...inbound]));
+      continue;
+    }
     // 회차점 막차가 회차 전 직전 정류장보다 이르면 회차점에서 따로 출발하는 차다(1336) — 회차 전 운행의 회차점 도착 시각을
     // 모르므로 회차 전 운행에서 뺀다. 넣으면 빌더가 시각을 맞추느라 마지막 구간이 0분이 된다.
     const departsSeparately =
