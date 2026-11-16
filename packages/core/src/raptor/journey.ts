@@ -8,7 +8,8 @@ import {
   type TransitGraph,
 } from '#graph/transit-graph';
 import type { Confidence } from '#stop-last/confidence';
-import { alightLimitOf, type ReverseRaptorResult, transferSlackOf } from '#raptor/reverse-raptor';
+import type { ReverseRaptorResult } from '#raptor/reverse-raptor';
+import { alightLimitOf, transferSlackOf } from '#raptor/round';
 import { TIME_EPSILON } from '#time/units';
 
 export type RideLeg = {

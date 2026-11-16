@@ -12,6 +12,12 @@ export * from '#plan/plan-candidates';
 export * from '#plan/plan-trip';
 export * from '#raptor/journey';
 export * from '#raptor/reverse-raptor';
+export {
+  alightLimitOf,
+  type RaptorRound,
+  type TransferSlack,
+  transferSlackOf,
+} from '#raptor/round';
 export * from '#stop-last/align-stop-sequences';
 export * from '#stop-last/clean-observed';
 export * from '#stop-last/confidence';
