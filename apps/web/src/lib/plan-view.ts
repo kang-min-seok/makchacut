@@ -1,6 +1,6 @@
 import type { PlanResponse, PlanStep, PlanWay } from '@makchacut/shared';
 import { formatKoreaClock, minutesBetween } from '@/lib/korea-time';
-import type { WayRef } from '@/lib/plan-target';
+import { FIRST_WAY, type WayRef } from '@/lib/plan-target';
 
 // 결과 화면이 응답에서 꺼내 쓰는 값들 (순수 함수)
 
@@ -88,4 +88,54 @@ export function selectWay(plan: PlanResponse, ref: WayRef): SelectedWay | undefi
   const way = plan.ways[ref.index];
   if (!way) return undefined;
   return { way, title: `방법 ${ref.index + 1} · ${formatKoreaClock(way.latestDeparture)} 출발` };
+}
+
+export type AnchorRow = {
+  routeName: string;
+  type: Exclude<PlanStep['type'], 'walk'>;
+  stopName: string;
+  // 막차 시각
+  time: string;
+  // 이 막차를 타려면 약속 장소에서 늦어도 이 시각에 나서야 한다
+  latestDeparture: string;
+  estimated: boolean;
+  // 결과 화면의 대표 핵심 연결
+  recommended: boolean;
+  ref: WayRef;
+};
+
+const DEFAULT_RIDE_TYPE: AnchorRow['type'] = 'bus';
+
+function rideTypeOf(way: PlanWay | undefined): AnchorRow['type'] {
+  const step = anchorStepOf(way);
+  return step && step.type !== 'walk' ? step.type : DEFAULT_RIDE_TYPE;
+}
+
+// 다른 막차 화면 목록: 대표 핵심 연결(추천)과 다른 막차를 출발 마감 늦은 순으로
+export function anchorRows(plan: PlanResponse): AnchorRow[] {
+  const { anchor } = plan;
+  if (!anchor) return [];
+  const main: AnchorRow = {
+    routeName: anchor.routeName,
+    type: rideTypeOf(plan.ways[0]),
+    stopName: anchor.stopName,
+    time: anchor.time,
+    latestDeparture: plan.deadline,
+    estimated: anchor.timeKind === 'estimated',
+    recommended: true,
+    ref: FIRST_WAY,
+  };
+  const others = plan.otherAnchors.map((other, index): AnchorRow => ({
+    routeName: other.routeName,
+    type: rideTypeOf(other.way),
+    stopName: other.stopName,
+    time: other.time,
+    latestDeparture: other.latestDeparture,
+    estimated: other.timeKind === 'estimated',
+    recommended: false,
+    ref: { kind: 'anchor', index },
+  }));
+  return [main, ...others].sort(
+    (a, b) => Date.parse(b.latestDeparture) - Date.parse(a.latestDeparture),
+  );
 }
