@@ -134,6 +134,8 @@ describe('formatPlan', () => {
       ways: [way],
       detour: { deadline: 1400, extraMinutes: 25 },
       detourFallback: false,
+      later: undefined,
+      otherAnchors: [],
     });
     expect(PlanResponseSchema.safeParse(response).success).toBe(true);
     expect(response.dayType).toBe('weekday');

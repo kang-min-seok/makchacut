@@ -30,6 +30,21 @@ export type PlannedWay = {
   homeWalkMinutes: number;
 };
 
+// 환승을 더 하면 대표보다 늦게 나설 수 있는 경로
+export type LaterWay = {
+  way: PlannedWay;
+  // 대표 경로보다 더 타는 횟수
+  extraRides: number;
+};
+
+// 대표가 아닌 다른 핵심 연결(막차)과 그 막차 기준 가장 늦은 경로
+export type OtherAnchor = {
+  anchor: RideLeg;
+  // 이 막차를 타려면 약속 장소에서 늦어도 이 시각에 나서야 한다
+  deadline: number;
+  way: PlannedWay;
+};
+
 export type TripPlan = {
   deadline: number;
   anchor: RideLeg | undefined;
@@ -37,4 +52,7 @@ export type TripPlan = {
   detour: { deadline: number; extraMinutes: number } | undefined;
   // 우회 한도 안 경로가 없어 돌아가는 경로를 그대로 안내함
   detourFallback: boolean;
+  later: LaterWay | undefined;
+  // 출발 마감 늦은 순
+  otherAnchors: OtherAnchor[];
 };
