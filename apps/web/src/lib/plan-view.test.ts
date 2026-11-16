@@ -3,6 +3,7 @@ import type { PlanResponse, PlanStep, PlanWay } from '@makchacut/shared';
 import {
   countdownTone,
   hasWaysToAnchor,
+  selectWay,
   stepsToAnchor,
   summarizeWay,
   URGENT_MINUTES,
@@ -110,5 +111,35 @@ describe('countdownTone', () => {
   it('turns urgent at the threshold', () => {
     expect(countdownTone(URGENT_MINUTES + 1)).toBe('calm');
     expect(countdownTone(URGENT_MINUTES)).toBe('urgent');
+  });
+});
+
+describe('selectWay', () => {
+  const plan: PlanResponse = {
+    ...planWith([feederWay, directWay]),
+    later: { latestDeparture: directWay.latestDeparture, extraTransfers: 1, way: directWay },
+    otherAnchors: [
+      {
+        ...planWith([feederWay]).anchor!,
+        routeName: '8502',
+        latestDeparture: at('23:57'),
+        way: directWay,
+      },
+    ],
+  };
+
+  it('picks a way, the later way or another anchor with its title', () => {
+    expect(selectWay(plan, { kind: 'way', index: 1 })).toEqual({
+      way: directWay,
+      title: '방법 2 · 23:28 출발',
+    });
+    expect(selectWay(plan, { kind: 'later' })?.title).toBe('환승 1번 더 · 23:28 출발');
+    expect(selectWay(plan, { kind: 'anchor', index: 0 })?.title).toBe('8502 막차 · 23:57 출발');
+  });
+
+  it('returns nothing for a way the response does not have', () => {
+    expect(selectWay(plan, { kind: 'way', index: 2 })).toBeUndefined();
+    expect(selectWay(plan, { kind: 'anchor', index: 1 })).toBeUndefined();
+    expect(selectWay(planWith([feederWay]), { kind: 'later' })).toBeUndefined();
   });
 });

@@ -15,6 +15,9 @@ type AnchorCardProps = {
   anchor: PlanAnchor;
   step: PlanStep | undefined;
   detailHref: string;
+  // 다른 막차 화면 버튼용 (핵심 연결 여러 개, 계획 8에서 그린다)
+  otherAnchorCount: number;
+  anchorsHref: string;
 };
 
 // 꼭 타야 하는 막차. 누르면 경로 상세로 간다.

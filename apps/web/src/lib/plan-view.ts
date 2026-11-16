@@ -1,5 +1,6 @@
 import type { PlanResponse, PlanStep, PlanWay } from '@makchacut/shared';
-import { minutesBetween } from '@/lib/korea-time';
+import { formatKoreaClock, minutesBetween } from '@/lib/korea-time';
+import type { WayRef } from '@/lib/plan-target';
 
 // 결과 화면이 응답에서 꺼내 쓰는 값들 (순수 함수)
 
@@ -66,4 +67,25 @@ export function summarizeWay(way: PlanWay): WaySummary {
       .reduce((sum, step) => sum + stepMinutes(step), 0),
     arrive,
   };
+}
+
+export type SelectedWay = { way: PlanWay; title: string };
+
+// 상세 화면이 보여 줄 경로와 제목. 응답에 없는 경로면 undefined
+export function selectWay(plan: PlanResponse, ref: WayRef): SelectedWay | undefined {
+  if (ref.kind === 'later') {
+    const { later } = plan;
+    if (!later) return undefined;
+    const clock = formatKoreaClock(later.latestDeparture);
+    return { way: later.way, title: `환승 ${later.extraTransfers}번 더 · ${clock} 출발` };
+  }
+  if (ref.kind === 'anchor') {
+    const other = plan.otherAnchors[ref.index];
+    if (!other) return undefined;
+    const clock = formatKoreaClock(other.latestDeparture);
+    return { way: other.way, title: `${other.routeName} 막차 · ${clock} 출발` };
+  }
+  const way = plan.ways[ref.index];
+  if (!way) return undefined;
+  return { way, title: `방법 ${ref.index + 1} · ${formatKoreaClock(way.latestDeparture)} 출발` };
 }
