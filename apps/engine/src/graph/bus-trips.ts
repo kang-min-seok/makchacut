@@ -26,14 +26,15 @@ export const CONFIDENCE_MARGIN_MINUTES: Readonly<Record<Confidence, number>> = {
   low: 10,
 };
 
+// 도착·출발은 원래 막차, 여유는 빌더가 타는 시각에서만 뺀다
 function toStopTime(row: BusStopLastRow): GraphStopTimeInput {
-  const minutes = row.lastMinutes - CONFIDENCE_MARGIN_MINUTES[row.confidence];
   return {
     stopId: row.stopId,
-    arrival: minutes,
-    departure: minutes,
+    arrival: row.lastMinutes,
+    departure: row.lastMinutes,
     source: row.source,
     confidence: row.confidence,
+    boardMarginMinutes: CONFIDENCE_MARGIN_MINUTES[row.confidence],
   };
 }
 
