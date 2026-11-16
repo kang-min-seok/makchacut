@@ -1,7 +1,7 @@
 import { alignGbisSegments, fetchGbisWebSegments } from '@makchacut/data';
 import type { IngestContext, SourceIngester } from '#jobs/sources/source-ingester';
 import { findRouteId, listRoutesWithStops } from '#jobs/stores/route-store';
-import { loadRouteStopRefs, updateSegments } from '#jobs/stores/segment-store';
+import { clearSegments, loadRouteStopRefs, updateSegments } from '#jobs/stores/segment-store';
 import { TargetDataError } from '#jobs/target-data-error';
 
 // 비공식 엔드포인트라 공식 한도는 없다. 노선당 하루 1회 이하, 하루 전체도 이만큼으로 묶는다(ADR 1항).
@@ -28,7 +28,9 @@ async function ingestTarget(ctx: IngestContext, target: { targetId: string }) {
   const segments = await ctx.budget.call(() => fetchGbisWebSegments(gbisRouteId));
   const aligned = alignGbisSegments(stops, segments);
   if (!aligned) {
-    // 거리 추정으로 대체된다(ADR 2항). 실패로 남겨 대체 비율을 볼 수 있게 한다.
+    // 정류장 목록 갱신은 같은 seq의 구간 값을 남기므로 지워야 거리 추정으로 대체된다(ADR 2항).
+    // 실패로 남겨 대체 비율을 볼 수 있게 한다.
+    await clearSegments(ctx.db, routeId);
     throw new TargetDataError(
       `GBIS 웹 구간이 공식 정류장 순번과 맞지 않습니다 (공식 ${stops.length}, 웹 ${segments.length})`,
     );

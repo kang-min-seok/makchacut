@@ -44,3 +44,10 @@ export async function updateSegments(
     where rs.route_id = ${routeId} and rs.seq = v.seq
   `);
 }
+
+export async function clearSegments(db: DbExecutor, routeId: number): Promise<void> {
+  await db
+    .update(routeStop)
+    .set({ segmentSeconds: null, segmentMeters: null })
+    .where(eq(routeStop.routeId, routeId));
+}
