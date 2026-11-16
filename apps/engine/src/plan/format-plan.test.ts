@@ -1,14 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildTransitGraph, indexGraph, type PlannedWay, type RideLeg } from '@makchacut/core';
 import { PlanResponseSchema } from '@makchacut/shared';
-import {
-  type FormatContext,
-  formatPlan,
-  formatWay,
-  PLAN_NOTES,
-  serviceMinutesToIso,
-} from '#plan/format-plan';
+import { formatPlan, PLAN_NOTES } from '#plan/format-plan';
+import { type FormatContext, formatWay } from '#plan/format-way';
 import { LruCache } from '#plan/lru-cache';
+import { serviceMinutesToIso } from '#plan/service-time-iso';
 
 const DATE = '2026-11-06';
 const HOME = { lat: 37.199, lng: 127.09 };
