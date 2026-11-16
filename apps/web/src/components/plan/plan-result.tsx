@@ -2,9 +2,10 @@ import type { PlanResponse } from '@makchacut/shared';
 import { AnchorCard } from '@/components/plan/anchor-card';
 import { DeadlineHero } from '@/components/plan/deadline-hero';
 import { DetourCard } from '@/components/plan/detour-card';
+import { LaterCard } from '@/components/plan/later-card';
 import { PlanNotes } from '@/components/plan/plan-notes';
 import { WayCard } from '@/components/plan/way-card';
-import { planDetailHref, type PlanTarget } from '@/lib/plan-target';
+import { FIRST_WAY, planAnchorsHref, planDetailHref, type PlanTarget } from '@/lib/plan-target';
 import { anchorStepOf, hasWaysToAnchor } from '@/lib/plan-view';
 
 type PlanResultProps = {
@@ -22,7 +23,9 @@ export function PlanResult({ target, plan, minutesLeft }: PlanResultProps) {
         <AnchorCard
           anchor={anchor}
           step={anchorStepOf(plan.ways[0])}
-          detailHref={planDetailHref(target, 0)}
+          detailHref={planDetailHref(target, FIRST_WAY)}
+          otherAnchorCount={plan.otherAnchors.length}
+          anchorsHref={planAnchorsHref(target)}
         />
       )}
       {anchor && hasWaysToAnchor(plan) && (
@@ -35,10 +38,13 @@ export function PlanResult({ target, plan, minutesLeft }: PlanResultProps) {
               key={way.latestDeparture + i}
               way={way}
               latest={i === 0 && plan.ways.length > 1}
-              href={planDetailHref(target, i)}
+              href={planDetailHref(target, { kind: 'way', index: i })}
             />
           ))}
         </section>
+      )}
+      {plan.later && (
+        <LaterCard later={plan.later} detailHref={planDetailHref(target, { kind: 'later' })} />
       )}
       {plan.detour && <DetourCard deadline={plan.deadline} detour={plan.detour} />}
       <PlanNotes notes={plan.notes} />

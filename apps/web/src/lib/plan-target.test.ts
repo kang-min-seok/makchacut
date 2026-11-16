@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { parsePlanTarget, parseWayIndex, planDetailHref, planHref } from '@/lib/plan-target';
+import {
+  FIRST_WAY,
+  parsePlanTarget,
+  parseWayRef,
+  planAnchorsHref,
+  planDetailHref,
+  planHref,
+  type WayRef,
+} from '@/lib/plan-target';
 import { safeNextPath } from '@/lib/routes';
 
 const target = { name: '모란역', lat: 37.432, lng: 127.129, date: '2026-11-06' };
@@ -15,10 +23,32 @@ describe('plan target in the URL', () => {
     expect(parsePlanTarget(new URLSearchParams({ ...stringify(target), lat: 'abc' }))).toBeNull();
   });
 
-  it('carries the way index for the detail page', () => {
-    const params = new URL(planDetailHref(target, 2), 'https://example.com').searchParams;
-    expect(parseWayIndex(params)).toBe(2);
-    expect(parseWayIndex(new URLSearchParams({ way: '-1' }))).toBe(0);
+  it('carries which way the detail page shows', () => {
+    const refs: WayRef[] = [
+      { kind: 'way', index: 2 },
+      { kind: 'later' },
+      { kind: 'anchor', index: 1 },
+    ];
+    for (const ref of refs) {
+      const params = new URL(planDetailHref(target, ref), 'https://example.com').searchParams;
+      expect(parseWayRef(params)).toEqual(ref);
+      expect(parsePlanTarget(params)).toEqual(target);
+    }
+  });
+
+  it('falls back to the first way for a broken index', () => {
+    expect(parseWayRef(new URLSearchParams({ way: '-1' }))).toEqual(FIRST_WAY);
+    expect(parseWayRef(new URLSearchParams())).toEqual(FIRST_WAY);
+    expect(parseWayRef(new URLSearchParams({ anchor: 'x', way: '1' }))).toEqual({
+      kind: 'way',
+      index: 1,
+    });
+  });
+
+  it('links the other anchors page with the same target', () => {
+    const url = new URL(planAnchorsHref(target), 'https://example.com');
+    expect(url.pathname).toBe('/plan/anchors');
+    expect(parsePlanTarget(url.searchParams)).toEqual(target);
   });
 });
 

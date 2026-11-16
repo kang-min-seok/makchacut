@@ -134,6 +134,8 @@ describe('formatPlan', () => {
       ways: [way],
       detour: { deadline: 1400, extraMinutes: 25 },
       detourFallback: false,
+      later: undefined,
+      otherAnchors: [],
     });
     expect(PlanResponseSchema.safeParse(response).success).toBe(true);
     expect(response.dayType).toBe('weekday');
@@ -144,5 +146,32 @@ describe('formatPlan', () => {
       source: 'gbis_eta',
     });
     expect(response.notes).toEqual([PLAN_NOTES.estimated]);
+    expect(response.later).toBeNull();
+    expect(response.otherAnchors).toEqual([]);
+  });
+
+  it('formats the later way and other anchors with their own anchor ride', () => {
+    const response = formatPlan(graph, REQUEST, 'weekday', {
+      deadline: 1380,
+      anchor: undefined,
+      ways: [way],
+      detour: undefined,
+      detourFallback: false,
+      later: { way, extraRides: 1 },
+      otherAnchors: [{ anchor, deadline: 1388, way }],
+    });
+    expect(PlanResponseSchema.safeParse(response).success).toBe(true);
+    expect(response.later).toMatchObject({
+      latestDeparture: '2026-11-06T23:08:00+09:00',
+      extraTransfers: 1,
+    });
+    expect(response.later?.way.steps.some((s) => s.isAnchor)).toBe(false);
+    const other = response.otherAnchors[0];
+    expect(other).toMatchObject({
+      routeName: '6003',
+      stopName: '판교역동편',
+      latestDeparture: '2026-11-06T23:08:00+09:00',
+    });
+    expect(other?.way.steps.map((s) => s.isAnchor)).toEqual([false, false, false, true, false]);
   });
 });

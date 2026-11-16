@@ -1,3 +1,6 @@
+import { alignTripTimes } from '#graph/align-trip-times';
+import { applyBoardMargin } from '#graph/board-margin';
+import type { TimedStop } from '#graph/timed-stop';
 import {
   TIME_SOURCES,
   type TimeSource,
@@ -20,6 +23,8 @@ export type GraphStopTimeInput = {
   departure: number | null;
   source: TimeSource;
   confidence: Confidence;
+  // 타는 시각에서만 뺄 여유(분, 기본 0). 도착은 원래 시각을 쓴다.
+  boardMarginMinutes?: number;
 };
 
 export type GraphTripInput = {
@@ -54,13 +59,6 @@ export type GraphBuildReport = {
   droppedStopTimes: number;
 };
 
-type TimedStop = {
-  stop: number;
-  arrival: number;
-  departure: number;
-  source: TimeSource;
-  confidence: Confidence;
-};
 type PreparedTrip = { input: GraphTripInput; stops: TimedStop[] };
 type Pattern = {
   routeId: number;
@@ -72,8 +70,8 @@ type Pattern = {
 
 const MIN_TRIP_STOPS = 2;
 
-// 시각이 하나만 있으면 다른 쪽에 같은 값을 쓰고, 입력 순서 그대로 도착 ≤ 출발, 직전 출발 ≤ 도착을 맞춘다
-function prepareTrip(
+// 시각이 하나만 있으면 다른 쪽에 같은 값을 쓰고, 정류장 목록에 없거나 시각이 없는 정차는 버린다
+function collectStops(
   trip: GraphTripInput,
   stopIndexById: ReadonlyMap<number, number>,
 ): { stops: TimedStop[]; dropped: number } {
@@ -87,17 +85,27 @@ function prepareTrip(
       dropped += 1;
       continue;
     }
-    const previous = timed.at(-1)?.departure ?? -Infinity;
-    const safeDeparture = Math.max(departure, previous);
     timed.push({
       stop,
-      arrival: Math.min(Math.max(arrival, previous), safeDeparture),
-      departure: safeDeparture,
+      arrival,
+      departure,
+      boardMargin: st.boardMarginMinutes ?? 0,
       source: st.source,
       confidence: st.confidence,
     });
   }
   return { stops: timed, dropped };
+}
+
+// 정차 모으기 → 원래 시각으로 순서 보정 → 타는 시각에서 여유 빼기
+function prepareTrip(
+  trip: GraphTripInput,
+  stopIndexById: ReadonlyMap<number, number>,
+): { stops: TimedStop[]; dropped: number } {
+  const collected = collectStops(trip, stopIndexById);
+  alignTripTimes(collected.stops);
+  applyBoardMargin(collected.stops);
+  return collected;
 }
 
 function overtakes(earlier: PreparedTrip, later: PreparedTrip): boolean {

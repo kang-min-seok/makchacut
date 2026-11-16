@@ -9,28 +9,27 @@ import { Pill } from '@/components/ui/pill';
 import { WayTimeline } from '@/components/way-detail/way-timeline';
 import { useTargetPlan } from '@/hooks/use-target-plan';
 import { formatDuration, formatKoreaClock } from '@/lib/korea-time';
-import { parseWayIndex, type PlanTarget } from '@/lib/plan-target';
-import { hasEstimatedRide, summarizeWay } from '@/lib/plan-view';
+import { FIRST_WAY, parseWayRef, type PlanTarget, type WayRef } from '@/lib/plan-target';
+import { hasEstimatedRide, selectWay, summarizeWay } from '@/lib/plan-view';
 
 const TITLE = '경로 상세';
 
 export function WayDetailScreen() {
   const state = useTargetPlan();
-  const wayIndex = parseWayIndex(new URLSearchParams(useSearchParams()));
+  const wayRef = parseWayRef(new URLSearchParams(useSearchParams()));
 
   return (
     <PlanGate state={state} header={<TopBar title={TITLE} />}>
-      {(plan, target) => <WayDetail plan={plan} target={target} wayIndex={wayIndex} />}
+      {(plan, target) => <WayDetail plan={plan} target={target} wayRef={wayRef} />}
     </PlanGate>
   );
 }
 
-type WayDetailProps = { plan: PlanResponse; target: PlanTarget; wayIndex: number };
+type WayDetailProps = { plan: PlanResponse; target: PlanTarget; wayRef: WayRef };
 
-function WayDetail({ plan, target, wayIndex }: WayDetailProps) {
-  const index = wayIndex < plan.ways.length ? wayIndex : 0;
-  const way = plan.ways[index];
-  if (!way) {
+function WayDetail({ plan, target, wayRef }: WayDetailProps) {
+  const selected = selectWay(plan, wayRef) ?? selectWay(plan, FIRST_WAY);
+  if (!selected) {
     return (
       <>
         <TopBar title={TITLE} />
@@ -38,11 +37,12 @@ function WayDetail({ plan, target, wayIndex }: WayDetailProps) {
       </>
     );
   }
+  const { way, title } = selected;
   const summary = summarizeWay(way);
   return (
     <>
       <TopBar
-        title={`방법 ${index + 1} · ${formatKoreaClock(way.latestDeparture)} 출발`}
+        title={title}
         subtitle={`${target.name} → 집 · ${formatKoreaClock(summary.arrive)} 도착`}
       />
       <main className="flex flex-col gap-2 pb-10">
