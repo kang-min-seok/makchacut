@@ -11,6 +11,7 @@ export * from '#plan/key-connection';
 export * from '#plan/plan-candidates';
 export * from '#plan/plan-trip';
 export * from '#raptor/journey';
+export * from '#raptor/labels';
 export * from '#raptor/reverse-raptor';
 export {
   alightLimitOf,

@@ -1,7 +1,7 @@
 import type { LatLng } from '#geo/distance';
 import { stopsNear } from '#graph/stops-near';
 import type { TransitGraph } from '#graph/transit-graph';
-import { bestLabelAt } from '#raptor/journey';
+import { bestLabelAt } from '#raptor/labels';
 import type { RaptorTarget, ReverseRaptorResult } from '#raptor/reverse-raptor';
 import { SECONDS_PER_MINUTE } from '#time/units';
 

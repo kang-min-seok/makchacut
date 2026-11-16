@@ -1,5 +1,5 @@
 import type { AccessStop } from '#plan/access';
-import { bestLabelAt } from '#raptor/journey';
+import { bestLabelAt } from '#raptor/labels';
 import type { ReverseRaptorResult } from '#raptor/reverse-raptor';
 
 // 우회 분리: 경로의 총 소요(약속 장소 → 집)가 약속 장소의 평시 총 소요 T*의 배수를 넘으면 "돌아가는 막차"로 본다.

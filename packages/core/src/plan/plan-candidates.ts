@@ -1,6 +1,7 @@
 import type { TransitGraph } from '#graph/transit-graph';
 import type { AccessStop } from '#plan/access';
-import { type Journey, labelsAt, reconstructJourney } from '#raptor/journey';
+import { type Journey, reconstructJourney } from '#raptor/journey';
+import { labelsAt } from '#raptor/labels';
 import type { ReverseRaptorResult } from '#raptor/reverse-raptor';
 import { SECONDS_PER_MINUTE } from '#time/units';
 
