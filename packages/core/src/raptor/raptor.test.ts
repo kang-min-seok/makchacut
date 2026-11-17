@@ -210,6 +210,14 @@ describe('home entries', () => {
     expect(journeyFrom(A)?.targetStop).toBe(stop(E2));
   });
 
+  it('walks on from the entry it alights at when that reaches home first', () => {
+    // E7 23:03에 내려 E2로 1분 걸으면 23:04(+2) = 23:06 — E2에서 내리는 23:08보다 이르다
+    const trips = [trip(10, [A, E7, E2, E15], '23:00', 3)];
+    const journey = search(trips, ENTRY_FOOTPATHS, OPTIONS, ENTRIES).journeyFrom(A);
+    expect(journey?.legs.map((leg) => leg.kind)).toEqual(['ride', 'walk']);
+    expect(journey?.legs[1]).toMatchObject({ fromStop: journey?.legs[0]?.toStop });
+  });
+
   it('takes the route that reaches home first when both leave at the same time', () => {
     // 둘 다 A 23:00 출발: E15 23:10(+15) = 23:25, E2 23:20(+2) = 23:22
     const trips = [trip(11, [A, E2], '23:00', 20), trip(12, [A, E15], '23:00', 10)];
@@ -239,5 +247,24 @@ describe('home entries', () => {
     const journey = search(trips, [], OPTIONS, ENTRIES).journeyFrom(A);
     expect(journey?.latestDeparture).toBe(m('23:00'));
     expect(journey?.rides).toBe(1);
+  });
+});
+
+describe('continuation after alighting', () => {
+  it('alights where the reconstructed route reaches home first', () => {
+    // C에 23:28에 내리면 바로 C 23:30 차(집 24:00)도 탈 수 있지만 D로 걸어 23:31 차(집 23:40)가 이르다.
+    // X에 내리면 23:30 차로 집 23:45 — 탐색과 복원 모두 C에 내려 D로 걷는 쪽을 골라야 한다
+    const trips = [
+      trip(20, [C, HOME], '23:30', 30),
+      trip(21, [D, HOME], '23:31', 9),
+      trip(22, [X, HOME], '23:30', 15),
+      trip(23, [A, C, X], '23:27', 1),
+    ];
+    const footpaths = [{ fromStopId: C, toStopId: D, walkSeconds: 60 }];
+    const { journeyFrom, stop } = search(trips, footpaths);
+    const journey = journeyFrom(A);
+    expect(journey?.legs.map((leg) => leg.kind)).toEqual(['ride', 'walk', 'ride']);
+    expect(journey?.legs[0]).toMatchObject({ toStop: stop(C) });
+    expect(journey?.legs[2]).toMatchObject({ fromStop: stop(D), arrive: m('23:40') });
   });
 });

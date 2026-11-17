@@ -8,10 +8,10 @@ import {
   type TransitGraph,
 } from '#graph/transit-graph';
 import type { Confidence } from '#stop-last/confidence';
+import { continuationAt } from '#raptor/continuation';
 import { bestLabelAt, type Label } from '#raptor/labels';
 import type { ReverseRaptorResult } from '#raptor/reverse-raptor';
-import { alightLimitOf, transferSlackOf } from '#raptor/round';
-import { TIME_EPSILON } from '#time/units';
+import { alightLimitOf } from '#raptor/round';
 
 export type RideLeg = {
   kind: 'ride';
@@ -47,23 +47,21 @@ export type Journey = {
   targetStop: number;
 };
 
-// 이 시각에 내려서 이어 갈 수 있는 가장 적게 타는 라운드의 값
+// 이 시각에 내려서 이어 갈 라벨 (탐색이 하차 정류장을 고를 때와 같은 기준)
 function continuationAfterAlight(
   result: ReverseRaptorResult,
   stop: number,
   arrival: number,
   beforeRound: number,
 ): Label | undefined {
-  for (let roundNumber = 0; roundNumber < beforeRound; roundNumber += 1) {
-    const round = result.rounds[roundNumber]!;
-    const limit = alightLimitOf(round, roundNumber, stop, result);
-    if (arrival > limit + TIME_EPSILON) continue;
-    // 바로 갈아타는 쪽이 걷는 쪽보다 구간이 적다
-    const slack = transferSlackOf(roundNumber, result);
-    const rideFits = arrival <= round.ride[stop]! - slack + TIME_EPSILON;
-    return { round: roundNumber, kind: rideFits ? 'ride' : 'walk', value: limit };
-  }
-  return undefined;
+  const next = continuationAt(result, stop, arrival, beforeRound);
+  if (!next) return undefined;
+  const round = result.rounds[next.round]!;
+  return {
+    round: next.round,
+    kind: next.kind,
+    value: alightLimitOf(round, next.round, stop, result),
+  };
 }
 
 function rideLeg(
