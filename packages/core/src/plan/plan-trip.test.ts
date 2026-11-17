@@ -168,6 +168,7 @@ describe('planTrip main route', () => {
     expect(result.anchor && routeOf(result.anchor)).toBe(40);
     expect(result.later?.extraRides).toBe(1);
     expect(result.later?.way.latestDeparture).toBeCloseTo(m('23:27'));
+    expect(result.detour).toBeUndefined();
     for (const way of result.ways) {
       expect(way.latestDeparture).toBeLessThanOrEqual(result.deadline);
     }
@@ -192,6 +193,7 @@ describe('planTrip main route', () => {
     const { result, routeOf } = plan('any', trips, [walk, { ...walk, fromStopId: F, toStopId: M }]);
     expect(result.anchor && routeOf(result.anchor)).toBe(40);
     expect(result.later).toBeUndefined();
+    expect(result.detour).toBeUndefined();
   });
 
   it('keeps the latest route when ride counts are equal', () => {

@@ -22,7 +22,7 @@ export function planTrip(input: TripPlanInput): TripPlan | undefined {
     deadline,
     anchor: anchor?.leg,
     ways,
-    detour: detourOption(candidates, main, deadline),
+    detour: detourOption(candidates, layer, main, deadline),
     detourFallback,
     later: laterWay(input, layer, main, deadline),
     otherAnchors: findOtherAnchors(input, main, anchor, deadline),
