@@ -39,7 +39,7 @@ function trip(
 }
 
 describe('buildTransitGraph', () => {
-  it('keeps the input stop order and makes times non-decreasing', () => {
+  it('pulls boarding times earlier and pushes alighting times later when times go backward', () => {
     const input = trip(10, [A, B, C], '22:00', 10);
     const swapped = {
       ...input,
@@ -47,9 +47,74 @@ describe('buildTransitGraph', () => {
         i === 1 ? { ...st, arrival: m('21:50'), departure: m('21:50') } : st,
       ),
     };
-    const { graph } = buildTransitGraph({ stops: STOPS, trips: [swapped], footpaths: [] });
+    const { graph, adjustedStopTimes, adjustedStopTimesByRoute } = buildTransitGraph({
+      stops: STOPS,
+      trips: [swapped],
+      footpaths: [],
+    });
     expect(Array.from(graph.patternStops)).toEqual([0, 1, 2]);
-    expect(Array.from(graph.departures)).toEqual([m('22:00'), m('22:00'), m('22:20')]);
+    expect(Array.from(graph.departures)).toEqual([m('21:50'), m('21:50'), m('22:20')]);
+    expect(Array.from(graph.arrivals)).toEqual([m('22:00'), m('22:00'), m('22:20')]);
+    expect(adjustedStopTimes).toBe(2);
+    expect(adjustedStopTimesByRoute.get(10)).toBe(2);
+  });
+
+  it('spreads a segment that is too short for its distance by the minimum travel time', () => {
+    // 위도 0.27도 ≈ 30km → 80km/h로 22.5분, 반올림 여유 1분을 빼면 최소 21.5분
+    const far = [
+      { id: A, name: 'A', lat: 37, lng: 127 },
+      { id: B, name: 'B', lat: 37.27, lng: 127 },
+    ];
+    const instant = { ...trip(11, [A, B], '23:00', 0), mode: 'bus' as const };
+    const { graph } = buildTransitGraph({ stops: far, trips: [instant], footpaths: [] });
+    const [departA, departB] = Array.from(graph.departures);
+    const [arriveA, arriveB] = Array.from(graph.arrivals);
+    expect(departB).toBe(m('23:00'));
+    expect(departB! - departA!).toBeCloseTo(21.5, 0);
+    expect(arriveA).toBe(m('23:00'));
+    expect(arriveB! - arriveA!).toBeCloseTo(21.5, 0);
+  });
+
+  it('leaves a consistent subway timetable unchanged', () => {
+    const near = [
+      { id: A, name: 'A', lat: 37.5, lng: 127 },
+      { id: B, name: 'B', lat: 37.51, lng: 127 },
+      { id: C, name: 'C', lat: 37.52, lng: 127 },
+    ];
+    const subway: GraphTripInput = {
+      ...trip(12, [A, B, C], '23:00', 2),
+      stopTimes: [
+        {
+          stopId: A,
+          arrival: m('23:00'),
+          departure: m('23:00') + 0.5,
+          source: 'timetable',
+          confidence: 'high',
+        },
+        {
+          stopId: B,
+          arrival: m('23:02'),
+          departure: m('23:02') + 0.5,
+          source: 'timetable',
+          confidence: 'high',
+        },
+        {
+          stopId: C,
+          arrival: m('23:04'),
+          departure: m('23:04') + 0.5,
+          source: 'timetable',
+          confidence: 'high',
+        },
+      ],
+    };
+    const { graph, adjustedStopTimes } = buildTransitGraph({
+      stops: near,
+      trips: [subway],
+      footpaths: [],
+    });
+    expect(Array.from(graph.arrivals)).toEqual(subway.stopTimes.map((st) => st.arrival));
+    expect(Array.from(graph.departures)).toEqual(subway.stopTimes.map((st) => st.departure));
+    expect(adjustedStopTimes).toBe(0);
   });
 
   it('splits trips that overtake into separate patterns', () => {

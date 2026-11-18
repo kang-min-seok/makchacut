@@ -1,4 +1,5 @@
 import { distanceMeters, hasCoordinates } from '#geo/distance';
+import { MAX_SPEED_METERS_PER_MINUTE } from '#geo/max-speed';
 import { unfoldServiceMinutes } from '#time/service-day';
 import { isPassingStop } from '#transit/passing-stop';
 
@@ -9,8 +10,6 @@ export type ObservedStop = {
   lng: number | null;
 };
 
-// 두 정류장 사이를 이보다 빨리 갈 수 없다 (고속도로 통과 구간 속도, 직선거리 기준이라 실제보다 너그럽다)
-const MAX_SPEED_METERS_PER_MINUTE = 80_000 / 60;
 // lastTm은 분 단위라 가까운 정류장끼리 같은 분이 나온다
 const ROUNDING_SLACK_MINUTES = 1;
 

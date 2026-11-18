@@ -1,4 +1,6 @@
-import { alignTripTimes } from '#graph/align-trip-times';
+import { distanceMeters, hasCoordinates } from '#geo/distance';
+import { MAX_SPEED_METERS_PER_MINUTE } from '#geo/max-speed';
+import { alignTripTimes, type SegmentMinMinutes } from '#graph/align-trip-times';
 import { applyBoardMargin } from '#graph/board-margin';
 import type { TimedStop } from '#graph/timed-stop';
 import {
@@ -57,6 +59,10 @@ export type GraphBuildReport = {
   skippedTrips: number;
   // 정류장 목록에 없어 버린 정차
   droppedStopTimes: number;
+  // 역행·과속 구간이라 시각을 고친 정차
+  adjustedStopTimes: number;
+  // 노선 id → 시각을 고친 정차 수
+  adjustedStopTimesByRoute: ReadonlyMap<number, number>;
 };
 
 type PreparedTrip = { input: GraphTripInput; stops: TimedStop[] };
@@ -69,6 +75,19 @@ type Pattern = {
 };
 
 const MIN_TRIP_STOPS = 2;
+// 시각은 분 단위로 반올림돼 있어 가까운 정류장끼리 같은 분이 나온다
+const ROUNDING_SLACK_MINUTES = 1;
+
+// 직선거리를 최대 속도로 간 시간에서 반올림 여유를 뺀 값. 좌표가 없으면 0.
+function segmentMinMinutes(stops: readonly GraphStopInput[]): SegmentMinMinutes {
+  return (from, to) => {
+    const a = stops[from]!;
+    const b = stops[to]!;
+    if (!hasCoordinates(a) || !hasCoordinates(b)) return 0;
+    const minutes = distanceMeters(a, b) / MAX_SPEED_METERS_PER_MINUTE - ROUNDING_SLACK_MINUTES;
+    return Math.max(0, minutes);
+  };
+}
 
 // 시각이 하나만 있으면 다른 쪽에 같은 값을 쓰고, 정류장 목록에 없거나 시각이 없는 정차는 버린다
 function collectStops(
@@ -97,15 +116,16 @@ function collectStops(
   return { stops: timed, dropped };
 }
 
-// 정차 모으기 → 원래 시각으로 순서 보정 → 타는 시각에서 여유 빼기
+// 정차 모으기 → 원래 시각으로 순서·최소 소요 보정 → 타는 시각에서 여유 빼기
 function prepareTrip(
   trip: GraphTripInput,
   stopIndexById: ReadonlyMap<number, number>,
-): { stops: TimedStop[]; dropped: number } {
+  minMinutes: SegmentMinMinutes,
+): { stops: TimedStop[]; dropped: number; adjusted: number } {
   const collected = collectStops(trip, stopIndexById);
-  alignTripTimes(collected.stops);
+  const adjusted = alignTripTimes(collected.stops, minMinutes);
   applyBoardMargin(collected.stops);
-  return collected;
+  return { ...collected, adjusted };
 }
 
 function overtakes(earlier: PreparedTrip, later: PreparedTrip): boolean {
@@ -153,26 +173,38 @@ function usedStopIndexes(
   return stops.filter((s) => used.has(s.id));
 }
 
-type PreparedTrips = {
-  trips: PreparedTrip[];
-  skippedTrips: number;
-  droppedStopTimes: number;
-};
+type PreparedTrips = Omit<GraphBuildReport, 'graph'> & { trips: PreparedTrip[] };
 
 function prepareTrips(
   trips: readonly GraphTripInput[],
   stopIndexById: ReadonlyMap<number, number>,
+  minMinutes: SegmentMinMinutes,
 ): PreparedTrips {
   let skippedTrips = 0;
   let droppedStopTimes = 0;
+  let adjustedStopTimes = 0;
+  const adjustedStopTimesByRoute = new Map<number, number>();
   const prepared: PreparedTrip[] = [];
   for (const trip of trips) {
-    const { stops: timed, dropped } = prepareTrip(trip, stopIndexById);
+    const { stops: timed, dropped, adjusted } = prepareTrip(trip, stopIndexById, minMinutes);
     droppedStopTimes += dropped;
-    if (timed.length < MIN_TRIP_STOPS) skippedTrips += 1;
-    else prepared.push({ input: trip, stops: timed });
+    if (timed.length < MIN_TRIP_STOPS) {
+      skippedTrips += 1;
+      continue;
+    }
+    prepared.push({ input: trip, stops: timed });
+    if (adjusted === 0) continue;
+    adjustedStopTimes += adjusted;
+    const routeTotal = adjustedStopTimesByRoute.get(trip.routeId) ?? 0;
+    adjustedStopTimesByRoute.set(trip.routeId, routeTotal + adjusted);
   }
-  return { trips: prepared, skippedTrips, droppedStopTimes };
+  return {
+    trips: prepared,
+    skippedTrips,
+    droppedStopTimes,
+    adjustedStopTimes,
+    adjustedStopTimesByRoute,
+  };
 }
 
 // 패턴을 그래프의 타입 배열로 담는다. 도보 간선은 양 끝이 모두 그래프에 들어간 것만 남긴다.
@@ -249,12 +281,12 @@ function packGraph(
   };
 }
 
-// 운행이 지나는 정류장만 그래프에 넣는다: 운행 다듬기 → 패턴 묶기 → 타입 배열
+// 운행이 지나는 정류장만 그래프에 넣는다: 운행 다듬기(시각 보정 집계) → 패턴 묶기 → 타입 배열
 export function buildTransitGraph(input: GraphBuildInput): GraphBuildReport {
   const stops = usedStopIndexes(input.stops, input.trips);
   const stopIndexById = new Map(stops.map((s, i) => [s.id, i]));
-  const { trips, skippedTrips, droppedStopTimes } = prepareTrips(input.trips, stopIndexById);
+  const { trips, ...counts } = prepareTrips(input.trips, stopIndexById, segmentMinMinutes(stops));
   const patterns = groupPatterns(trips);
   const graph = packGraph(stops, stopIndexById, patterns, input.footpaths);
-  return { graph, skippedTrips, droppedStopTimes };
+  return { graph, ...counts };
 }
