@@ -1,6 +1,7 @@
 import { patternStopAt, timeIndex, type TransitGraph } from '#graph/transit-graph';
 import { NONE, type RaptorRound } from '#raptor/round';
 import { finishAfterAlight, recordRide, type SearchState } from '#raptor/search-state';
+import { TIME_EPSILON } from '#time/units';
 
 // 패턴 안에서 position 정류장 도착이 limit 이하인 가장 늦은 운행 (FIFO라 도착이 운행 순서대로 증가)
 function latestTripArrivingBy(
@@ -46,11 +47,13 @@ export function scanTimedTrips(
     const limit = alightLimit[stop]!;
     if (limit === -Infinity) continue;
     const candidate = latestTripArrivingBy(graph, pattern, position, limit);
-    if (candidate > trip) {
-      trip = candidate;
-      alightPosition = position;
-      const arrival = graph.arrivals[timeIndex(graph, pattern, trip, position)]!;
-      finish = finishAfterAlight(state, stop, arrival);
-    }
+    if (candidate === NONE || candidate < trip) continue;
+    const arrival = graph.arrivals[timeIndex(graph, pattern, candidate, position)]!;
+    const candidateFinish = finishAfterAlight(state, stop, arrival);
+    // 같은 운행이면 목적지에 먼저 닿는 정류장에서 내린다
+    if (candidate === trip && candidateFinish >= finish - TIME_EPSILON) continue;
+    trip = candidate;
+    alightPosition = position;
+    finish = candidateFinish;
   }
 }

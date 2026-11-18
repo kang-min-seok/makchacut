@@ -1,5 +1,6 @@
 import type { GraphIndex } from '#graph/graph-index';
 import { headwayOf, stopCount, type TransitGraph } from '#graph/transit-graph';
+import type { ContinuationSource } from '#raptor/continuation';
 import { relaxFootpaths } from '#raptor/relax-footpaths';
 import { createRound, NONE, type RaptorRound, type TransferSlack } from '#raptor/round';
 import { scanHeadway } from '#raptor/scan-headway';
@@ -40,7 +41,7 @@ export type ReverseRaptorOptions = {
 
 export const DEFAULT_MIN_TRANSFER_MINUTES = 1;
 
-export type ReverseRaptorResult = TransferSlack & {
+export type ReverseRaptorResult = ContinuationSource & {
   rounds: RaptorRound[];
   walkTimeFactor: number;
 };
@@ -82,11 +83,12 @@ export function reverseRaptor(
 ): ReverseRaptorResult {
   const size = stopCount(graph);
   const { walkTimeFactor } = options;
-  const state = createSearchState(graph, index, options.maxTravelMinutes, walkTimeFactor);
   const slack: TransferSlack = {
     minTransferMinutes: options.minTransferMinutes,
     targetTransferMinutes: options.targetTransferMinutes ?? 0,
   };
+  const state = createSearchState(graph, index, options.maxTravelMinutes, walkTimeFactor, slack);
+  const { rounds } = state;
 
   const first = createRound(size);
   const targetStops = new Set<number>();
@@ -99,14 +101,8 @@ export function reverseRaptor(
     }
   }
   const firstWalked = relaxFootpaths(state, first, 0, targetStops);
-  const rounds = [first];
-  let marked = updateAlightLimits(
-    state,
-    first,
-    0,
-    new Set([...targetStops, ...firstWalked]),
-    slack,
-  );
+  rounds.push(first);
+  let marked = updateAlightLimits(state, first, 0, new Set([...targetStops, ...firstWalked]));
 
   for (
     let roundNumber = 1;
@@ -120,7 +116,13 @@ export function reverseRaptor(
     }
     const walked = relaxFootpaths(state, round, roundNumber, rode);
     rounds.push(round);
-    marked = updateAlightLimits(state, round, roundNumber, new Set([...rode, ...walked]), slack);
+    marked = updateAlightLimits(state, round, roundNumber, new Set([...rode, ...walked]));
   }
-  return { rounds, ...slack, walkTimeFactor };
+  return {
+    rounds,
+    ...slack,
+    targetRideOffset: state.targetRideOffset,
+    targetWalkOffset: state.targetWalkOffset,
+    walkTimeFactor,
+  };
 }

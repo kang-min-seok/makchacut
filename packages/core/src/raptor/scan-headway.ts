@@ -1,6 +1,7 @@
 import { patternStopAt, timeIndex } from '#graph/transit-graph';
 import { NONE, type RaptorRound } from '#raptor/round';
-import { finishAfterAlight, recordRide, type SearchState } from '#raptor/search-state';
+import { finishAfterAlight, improves, recordRide, type SearchState } from '#raptor/search-state';
+import { TIME_EPSILON } from '#time/units';
 
 // 배차 기반: 막차 시각표 기준 "내림 한계 − 막차 도착"(음수 = 막차로는 늦음)의 최댓값을 들고 거꾸로 가며
 // 탈 정류장의 막차 출발 + 그 값 − 배차간격을 늦어도 있어야 할 시각으로 쓴다
@@ -26,12 +27,15 @@ export function scanHeadway(
       const choice = { pattern, trip, boardPosition: position, alightPosition, byHeadway: true };
       recordRide(state, round, stop, value, finish, choice, improved);
     }
-    const candidate = alightLimit[stop]! - graph.arrivals[cell]!;
-    if (candidate > margin) {
-      margin = candidate;
-      alightPosition = position;
-      // 최악 대기로 탄 차는 내림 한계에 맞춰 내린다
-      finish = finishAfterAlight(state, stop, alightLimit[stop]!);
-    }
+    const limit = alightLimit[stop]!;
+    if (limit === -Infinity) continue;
+    const candidate = limit - graph.arrivals[cell]!;
+    if (candidate < margin - TIME_EPSILON) continue;
+    // 최악 대기로 탄 차는 내림 한계에 맞춰 내린다
+    const candidateFinish = finishAfterAlight(state, stop, limit);
+    if (!improves(candidate, candidateFinish, margin, finish)) continue;
+    margin = candidate;
+    alightPosition = position;
+    finish = candidateFinish;
   }
 }

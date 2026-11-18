@@ -18,7 +18,11 @@ const HOME = 5;
 const X = 6;
 const P = 7;
 const Q = 8;
-const STOP_IDS = [A, B, C, D, HOME, X, P, Q];
+// 집 진입점: 이름의 숫자 = 집까지 도보(분)
+const E2 = 9;
+const E7 = 10;
+const E15 = 11;
+const STOP_IDS = [A, B, C, D, HOME, X, P, Q, E2, E7, E15];
 const STOPS = STOP_IDS.map((id) => ({ id, name: `S${id}`, lat: null, lng: null }));
 
 const OPTIONS: ReverseRaptorOptions = { maxRides: 3, minTransferMinutes: 1, walkTimeFactor: 1 };
@@ -50,14 +54,25 @@ function trip(
   };
 }
 
-function search(trips: GraphTripInput[], footpaths: GraphFootpathInput[] = [], options = OPTIONS) {
+type HomeEntry = { stopId: number; walkMinutes: number };
+
+function search(
+  trips: GraphTripInput[],
+  footpaths: GraphFootpathInput[] = [],
+  options = OPTIONS,
+  entries: readonly HomeEntry[] = [{ stopId: HOME, walkMinutes: 0 }],
+) {
   const { graph } = buildTransitGraph({ stops: STOPS, trips, footpaths });
   const index = indexGraph(graph);
-  const home = index.stopIndexById.get(HOME)!;
-  const result = reverseRaptor(graph, index, [{ stop: home, latestArrival: Infinity }], options);
-  const journeyFrom = (stopId: number) =>
-    reconstructJourney(graph, result, index.stopIndexById.get(stopId)!);
-  return { graph, journeyFrom };
+  const stop = (stopId: number) => index.stopIndexById.get(stopId)!;
+  const targets = entries.map((e) => ({
+    stop: stop(e.stopId),
+    latestArrival: Infinity,
+    finishMinutes: e.walkMinutes,
+  }));
+  const result = reverseRaptor(graph, index, targets, options);
+  const journeyFrom = (stopId: number) => reconstructJourney(graph, result, stop(stopId));
+  return { graph, journeyFrom, stop };
 }
 
 const LINE_1 = [A, B, C];
@@ -167,5 +182,89 @@ describe('walk time factor', () => {
     expect(search(trips, footpaths).journeyFrom(D)?.latestDeparture).toBe(m('22:31'));
     const slow = search(trips, footpaths, { ...OPTIONS, walkTimeFactor: 1.25 });
     expect(slow.journeyFrom(D)?.latestDeparture).toBe(m('22:30'));
+  });
+});
+
+describe('home entries', () => {
+  const ENTRIES = [
+    { stopId: E7, walkMinutes: 7 },
+    { stopId: E2, walkMinutes: 2 },
+    { stopId: E15, walkMinutes: 15 },
+  ];
+  // 먼 진입점이 먼저 처리되게 (먼저 찾은 값을 유지하면 먼 쪽이 남는다)
+  const FAR_FIRST = [...ENTRIES].reverse();
+  const ENTRY_WALK_SECONDS = 60;
+  // 진입점끼리는 서로 걸어서 1분
+  const ENTRY_FOOTPATHS = ENTRIES.flatMap((from) =>
+    ENTRIES.filter((to) => to !== from).map((to) => ({
+      fromStopId: from.stopId,
+      toStopId: to.stopId,
+      walkSeconds: ENTRY_WALK_SECONDS,
+    })),
+  );
+
+  it('alights where the arrival plus the walk home is earliest', () => {
+    // E7 23:03(+7) → E2 23:06(+2) → E15 23:09(+15): E2에서 내리면 23:08 도착
+    const trips = [trip(10, [A, E7, E2, E15], '23:00', 3)];
+    const { journeyFrom, stop } = search(trips, ENTRY_FOOTPATHS, OPTIONS, ENTRIES);
+    expect(journeyFrom(A)?.targetStop).toBe(stop(E2));
+  });
+
+  it('walks on from the entry it alights at when that reaches home first', () => {
+    // E7 23:03에 내려 E2로 1분 걸으면 23:04(+2) = 23:06 — E2에서 내리는 23:08보다 이르다
+    const trips = [trip(10, [A, E7, E2, E15], '23:00', 3)];
+    const journey = search(trips, ENTRY_FOOTPATHS, OPTIONS, ENTRIES).journeyFrom(A);
+    expect(journey?.legs.map((leg) => leg.kind)).toEqual(['ride', 'walk']);
+    expect(journey?.legs[1]).toMatchObject({ fromStop: journey?.legs[0]?.toStop });
+  });
+
+  it('takes the route that reaches home first when both leave at the same time', () => {
+    // 둘 다 A 23:00 출발: E15 23:10(+15) = 23:25, E2 23:20(+2) = 23:22
+    const trips = [trip(11, [A, E2], '23:00', 20), trip(12, [A, E15], '23:00', 10)];
+    const { journeyFrom, stop } = search(trips, [], OPTIONS, FAR_FIRST);
+    expect(journeyFrom(A)?.latestDeparture).toBe(m('23:00'));
+    expect(journeyFrom(A)?.targetStop).toBe(stop(E2));
+  });
+
+  it('walks to the entry that reaches home first', () => {
+    // X에서 E15는 1분, E2는 3분 — E2로 걸으면 집에 2분 먼저 닿는다 (05:00 운행은 진입점을 그래프에 올리는 용도)
+    const trips = [trip(13, [A, X], '23:00', 10), trip(17, [E2, E15], '05:00', 1)];
+    const footpaths = [
+      { fromStopId: X, toStopId: E15, walkSeconds: 60 },
+      { fromStopId: X, toStopId: E2, walkSeconds: 180 },
+    ];
+    const { journeyFrom, stop } = search(trips, footpaths, OPTIONS, FAR_FIRST);
+    expect(journeyFrom(A)?.targetStop).toBe(stop(E2));
+  });
+
+  it('keeps the route with fewer rides on the same departure', () => {
+    // 한 번 타면 23:30(+15) = 23:45, 갈아타면 23:15(+2) = 23:17이지만 덜 타는 쪽이 우선
+    const trips = [
+      trip(14, [A, E15], '23:00', 30),
+      trip(15, [A, B], '23:00', 5),
+      trip(16, [B, E2], '23:10', 5),
+    ];
+    const journey = search(trips, [], OPTIONS, ENTRIES).journeyFrom(A);
+    expect(journey?.latestDeparture).toBe(m('23:00'));
+    expect(journey?.rides).toBe(1);
+  });
+});
+
+describe('continuation after alighting', () => {
+  it('alights where the reconstructed route reaches home first', () => {
+    // C에 23:28에 내리면 바로 C 23:30 차(집 24:00)도 탈 수 있지만 D로 걸어 23:31 차(집 23:40)가 이르다.
+    // X에 내리면 23:30 차로 집 23:45 — 탐색과 복원 모두 C에 내려 D로 걷는 쪽을 골라야 한다
+    const trips = [
+      trip(20, [C, HOME], '23:30', 30),
+      trip(21, [D, HOME], '23:31', 9),
+      trip(22, [X, HOME], '23:30', 15),
+      trip(23, [A, C, X], '23:27', 1),
+    ];
+    const footpaths = [{ fromStopId: C, toStopId: D, walkSeconds: 60 }];
+    const { journeyFrom, stop } = search(trips, footpaths);
+    const journey = journeyFrom(A);
+    expect(journey?.legs.map((leg) => leg.kind)).toEqual(['ride', 'walk', 'ride']);
+    expect(journey?.legs[0]).toMatchObject({ toStop: stop(C) });
+    expect(journey?.legs[2]).toMatchObject({ fromStop: stop(D), arrive: m('23:40') });
   });
 });
