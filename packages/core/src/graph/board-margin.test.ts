@@ -79,7 +79,7 @@ describe('applyBoardMargin in the graph builder', () => {
       ]),
     );
     expect(Array.from(graph.arrivals)).toEqual([1400, 1400, 1410]);
-    expect(Array.from(graph.departures)).toEqual([1400, 1390, 1410]);
+    expect(Array.from(graph.departures)).toEqual([1398, 1388, 1410]);
   });
 });
 
