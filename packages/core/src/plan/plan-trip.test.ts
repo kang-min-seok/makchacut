@@ -153,6 +153,57 @@ describe('planTrip', () => {
   });
 });
 
+describe('planTrip main route', () => {
+  // 직행 막차 40: M 23:30 → 집 (마감 23:23). 갈아타는 길: 41 M → P, 42 P → 집 (P 도착 2분 뒤 출발)
+  const DIRECT = trip(40, [M, HOME], '23:30', 30, 'bus');
+  const transferRoute = (boardAtM: string, boardAtP: string) => [
+    trip(41, [M, P], boardAtM, 10, 'bus'),
+    trip(42, [P, HOME], boardAtP, 20, 'bus'),
+  ];
+
+  it('prefers one ride fewer when the latest route leaves at most 5 minutes later', () => {
+    // 41 23:34 → 마감 23:27, 직행보다 4분 늦고 한 번 더 탄다
+    const { result, routeOf } = plan('any', [DIRECT, ...transferRoute('23:34', '23:46')]);
+    expect(result.deadline).toBeCloseTo(m('23:23'));
+    expect(result.anchor && routeOf(result.anchor)).toBe(40);
+    expect(result.later?.extraRides).toBe(1);
+    expect(result.later?.way.latestDeparture).toBeCloseTo(m('23:27'));
+    expect(result.detour).toBeUndefined();
+    for (const way of result.ways) {
+      expect(way.latestDeparture).toBeLessThanOrEqual(result.deadline);
+    }
+  });
+
+  it('keeps the latest route when it leaves more than 5 minutes later', () => {
+    // 41 23:36 → 마감 23:29, 6분 늦다
+    const { result, routeOf } = plan('any', [DIRECT, ...transferRoute('23:36', '23:48')]);
+    expect(result.deadline).toBeCloseTo(m('23:29'));
+    expect(result.anchor && routeOf(result.anchor)).toBe(42);
+    expect(result.later).toBeUndefined();
+  });
+
+  it('does not announce a later route that leaves less than a minute later', () => {
+    // 41을 M에서 30초 걸어간 F에서 23:31에 타면 마감 23:23.5, 직행보다 30초 늦다
+    const trips = [
+      DIRECT,
+      trip(41, [F, P], '23:31', 9, 'bus'),
+      trip(42, [P, HOME], '23:42', 20, 'bus'),
+    ];
+    const walk = { fromStopId: M, toStopId: F, walkSeconds: 30 };
+    const { result, routeOf } = plan('any', trips, [walk, { ...walk, fromStopId: F, toStopId: M }]);
+    expect(result.anchor && routeOf(result.anchor)).toBe(40);
+    expect(result.later).toBeUndefined();
+    expect(result.detour).toBeUndefined();
+  });
+
+  it('keeps the latest route when ride counts are equal', () => {
+    const { result, routeOf } = plan('any', [DIRECT, trip(43, [M, HOME], '23:31', 30, 'bus')]);
+    expect(result.deadline).toBeCloseTo(m('23:24'));
+    expect(result.anchor && routeOf(result.anchor)).toBe(43);
+    expect(result.later).toBeUndefined();
+  });
+});
+
 describe('isLastRun', () => {
   // 완행 22:00 A→B→C, 급행 22:10 A→C (B 미정차)
   const A = 1;
