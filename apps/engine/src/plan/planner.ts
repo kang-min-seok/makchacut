@@ -7,7 +7,7 @@ import { createHomeSearchCache } from '#plan/home-search-cache';
 import { requestDayType } from '#plan/request-day-type';
 import { searchOptions } from '#plan/search-options';
 
-// /plan 계산: 요일 유형 그래프 → 진입점 → 집 쪽 탐색(캐시) → 약속 장소 질의 → 응답 형태
+// /plan 계산: 요일 유형 그래프 → 진입점 → 집 쪽 탐색·제외 탐색(캐시) → 약속 장소 질의 → 응답 형태
 
 export type PlanOutcome =
   { kind: 'planned'; response: PlanResponse } | { kind: 'no_graph' } | { kind: 'no_route' };
@@ -37,11 +37,13 @@ export function createPlanner({ db, graphs }: PlannerDeps): Planner {
     const meetupAccess = accessStops(loaded.graph, request.meetup, access);
     if (homeAccess.length === 0 || meetupAccess.length === 0) return { kind: 'no_route' };
 
+    const { homeSearch, searchExcluding } = homeSearchFor(loaded, homeAccess, options);
     const plan = planTrip({
       graph: loaded.graph,
       index: loaded.index,
       homeAccess,
-      homeSearch: homeSearchFor(loaded, homeAccess, options),
+      homeSearch,
+      searchExcluding,
       meetupAccess,
       options: tripOptions,
     });

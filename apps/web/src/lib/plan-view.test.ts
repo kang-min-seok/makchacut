@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlanResponse, PlanStep, PlanWay } from '@makchacut/shared';
 import {
+  anchorRows,
   countdownTone,
   hasWaysToAnchor,
   selectWay,
@@ -141,5 +142,42 @@ describe('selectWay', () => {
     expect(selectWay(plan, { kind: 'way', index: 2 })).toBeUndefined();
     expect(selectWay(plan, { kind: 'anchor', index: 1 })).toBeUndefined();
     expect(selectWay(planWith([feederWay]), { kind: 'later' })).toBeUndefined();
+  });
+});
+
+describe('anchorRows', () => {
+  const base = planWith([feederWay]);
+  const otherAnchor = (routeName: string, latestDeparture: string, way: PlanWay) => ({
+    ...base.anchor!,
+    routeName,
+    latestDeparture: at(latestDeparture),
+    way,
+  });
+  const plan: PlanResponse = {
+    ...base,
+    otherAnchors: [
+      otherAnchor('8502', '23:57', feederWay),
+      { ...otherAnchor('8호선', '23:10', directWay), timeKind: 'estimated' },
+    ],
+  };
+
+  it('lists the main anchor as recommended among others, latest deadline first', () => {
+    const rows = anchorRows(plan);
+    expect(rows.map((row) => [row.routeName, row.recommended])).toEqual([
+      ['8502', false],
+      ['6003', true],
+      ['8호선', false],
+    ]);
+    expect(rows.map((row) => row.ref)).toEqual([
+      { kind: 'anchor', index: 0 },
+      { kind: 'way', index: 0 },
+      { kind: 'anchor', index: 1 },
+    ]);
+    expect(rows[1]?.latestDeparture).toBe(base.deadline);
+    expect(rows[2]).toMatchObject({ type: 'subway', estimated: true });
+  });
+
+  it('is empty without a key connection', () => {
+    expect(anchorRows({ ...plan, anchor: null })).toEqual([]);
   });
 });
