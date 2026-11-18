@@ -63,12 +63,17 @@ describe('busLastRunTrips', () => {
     expect(trips[1]?.stopTimes.map((s) => s.departure)).toEqual([1230, 1240]);
   });
 
-  it('moves estimated last runs earlier by confidence', () => {
+  it('keeps raw last times and passes the confidence margin for boarding only', () => {
     const [trip] = busLastRunTrips([
       { ...row(1, 'outbound', 1400), confidence: 'low' },
       { ...row(2, 'outbound', 1420), confidence: 'medium' },
+      row(3, 'outbound', 1430),
     ]);
-    expect(trip?.stopTimes.map((s) => s.departure)).toEqual([1390, 1415]);
+    expect(trip?.stopTimes.map((s) => [s.arrival, s.departure, s.boardMarginMinutes])).toEqual([
+      [1400, 1400, 10],
+      [1420, 1420, 5],
+      [1430, 1430, 0],
+    ]);
   });
 
   // 1336: 양쪽 기점 막차가 같은 시각이라 회차 전 직전 정류장(20:30)이 회차점 막차(20:00)보다 늦다

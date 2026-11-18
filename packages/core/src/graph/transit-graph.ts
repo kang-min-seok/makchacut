@@ -38,7 +38,9 @@ export type TransitGraph = {
 
   // 운행
   tripLabels: string[];
+  // 차가 정류장에 닿는 시각 (내리는 시각)
   arrivals: Float32Array;
+  // 늦어도 이 시각엔 정류장에 있어야 하는 시각 (타는 시각). 신뢰도 여유만큼 도착보다 이를 수 있다.
   departures: Float32Array;
   // 시각마다 TIME_SOURCES·CONFIDENCE_LEVELS 인덱스
   timeSources: Uint8Array;
